@@ -18,6 +18,16 @@ require_relative "#{File.basename(__FILE__)}.lib/retemplater"
 require_relative "#{File.basename(__FILE__)}.lib/reworker"
 require_relative "#{File.basename(__FILE__)}.lib/remover"
 
+def prepare_lpim_day_option(is_off, is_half)
+  if is_off && is_half
+    raise "Can't specify both --off and --half"
+  elsif is_off
+    Reworker::LPIM_DAY_OFF
+  elsif is_half
+    Reworker::LPIM_HALF_DAY
+  end
+end
+
 def conditional_save(content, original_content, schedule_filename, archive_filename, compare: false, move:)
   if content != original_content
     if compare
@@ -52,14 +62,14 @@ class Replan
     Relister.new.execute(content)
   end
 
-  def update(schedule_filename, archive_filename, template_filename:, compare:, move:)
+  def update(schedule_filename, archive_filename, template_filename:, compare:, move:, lpim_day:)
     content = IO.read(schedule_filename)
     original_content = content.dup
 
     content = Refixer.new.execute(content)
     content = Readder.new.execute(content)
     content = Retemplater.new(template_filename).execute(content) if template_filename && move
-    content = Reworker.new.execute(content) if move
+    content = Reworker.new.execute(content, lpim_day: lpim_day) if move
     content = Replanner.new.execute(content, move)
 
     conditional_save(content, original_content, schedule_filename, archive_filename, compare: compare, move: move)
@@ -72,12 +82,15 @@ if __FILE__ == $PROGRAM_NAME
     [ "-c", "--compare", "Compare before replacing the file, if there is any change, and ask confirmation" ],
     [ "-l", "--list",    "List mode"],
     [ "-M", "--nomove",  "Don't move the current day after applying the replans"],
+    [ "-O", "--off",     "Set day off when adding the lpim command"],
+    [ "-H", "--half",    "Set half day when adding the lpim command"],
   ) || exit
 
   configuration = SimpleScripting::Configuration.load
   schedule_filename = configuration.schedule_filename.full_path
   list = !!options[:list]
   debug_mode = options.delete(:debug)
+  lpim_day_option = prepare_lpim_day_option(options.delete(:off), options.delete(:half))
 
   begin
     if list
@@ -90,7 +103,7 @@ if __FILE__ == $PROGRAM_NAME
       move = !options[:nomove]
       compare = !!options[:compare]
 
-      Replan.new.update(schedule_filename, archive_filename, template_filename: template_filename, compare: compare, move: move)
+      Replan.new.update(schedule_filename, archive_filename, template_filename: template_filename, compare: compare, move: move, lpim_day: lpim_day_option)
     end
   rescue => error
     if debug_mode

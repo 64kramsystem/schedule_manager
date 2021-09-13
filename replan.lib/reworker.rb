@@ -7,15 +7,18 @@ require_relative 'replan_helper'
 class Reworker
   include ReplanHelper
 
+  LPIM_DAY_OFF = :off
+  LPIM_HALF_DAY = :half
+
   # New line is inserted after this.
   #
   INSERTION_POINT_PATTERN = /^( +)(- RSS, email\n)/
 
   WORK_TASK_PATTERN = /^ *[-~]( \d+:\d+\.)? work (.+)/
 
-  ADDED_TASK_TEMPLATE = "- lpimw -t ye '%s' # -c half|off\n"
+  ADDED_TASK_TEMPLATE = "- lpimw -t ye '%s' %s\n"
 
-  def execute(content)
+  def execute(content, lpim_day:)
     current_date = find_first_date(content)
     current_date_section = find_date_section(content, current_date)
 
@@ -24,7 +27,7 @@ class Reworker
     next_date = current_date + 1
     next_date_section = find_date_section(content, next_date)
 
-    new_next_date_section = add_lpim_to_next_day(next_date_section, work_times)
+    new_next_date_section = add_lpim_to_next_day(next_date_section, work_times, lpim_day: lpim_day)
 
     content.sub(next_date_section, new_next_date_section)
   end
@@ -60,12 +63,14 @@ class Reworker
     times.join(', ')
   end
 
-  def add_lpim_to_next_day(section, work_times)
+  def add_lpim_to_next_day(section, work_times, lpim_day:)
     raise "Found lpim in next day!" if section =~ /\blpimw\b/
     raise "Insertion point not found!" if section !~ INSERTION_POINT_PATTERN
 
+    day_option = "--comment #{lpim_day}" if lpim_day
+
     section.sub(INSERTION_POINT_PATTERN) do |match|
-      "#{$LAST_MATCH_INFO[0]}#{$LAST_MATCH_INFO[1]}" + ADDED_TASK_TEMPLATE % work_times
+      "#{$LAST_MATCH_INFO[0]}#{$LAST_MATCH_INFO[1]}" + ADDED_TASK_TEMPLATE % [work_times, day_option]
     end
   end
 end
