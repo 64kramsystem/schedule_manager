@@ -292,12 +292,24 @@ describe Replanner do
 
   context 'next' do
     context 'field weekday support' do
+      it "Should raise an error if not updating full" do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan sun)
+
+        TXT
+
+        expect {
+          subject.execute(test_content, true)
+        }.to raise_error("Weekdays are allowed on with a full update")
+      end
+
       # "current" is intended the european way.
       #
       it "Should set the day in the current week, accounting the semantic different with Ruby's start of the week" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan sun)
+        - foo (replan U sun)
 
         TXT
 
@@ -308,13 +320,18 @@ describe Replanner do
         - foo
         TXT
 
+        expect_any_instance_of(InputHelper)
+          .to receive(:ask)
+          .with("Enter the new description:", prefill: "foo (replan U sun)")
+          .and_return("foo (replan U sun)")
+
         assert_replan(test_content, expected_next_date_section, 'sun' => Date.new(2021, 9, 26))
       end
 
       it "Should set the day in the following week, when the weekday matches the current day" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan mon)
+        - foo (replan U mon)
 
         TXT
 
@@ -322,6 +339,11 @@ describe Replanner do
             MON 27/SEP/2021
         - foo
         TXT
+
+        expect_any_instance_of(InputHelper)
+          .to receive(:ask)
+          .with("Enter the new description:", prefill: "foo (replan U mon)")
+          .and_return("foo (replan U mon)")
 
         assert_replan(test_content, expected_next_date_section, 'mon' => Date.new(2021, 9, 27))
       end

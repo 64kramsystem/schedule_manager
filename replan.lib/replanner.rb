@@ -133,6 +133,8 @@ class Replanner
       when /^\d+(\.\d)?y$/
         365 * replan_value[0..-2].to_f
       when /^(\w{3})(\+)?$/
+        raise "Weekdays are allowed on with a full update" if !replan_data.update_full
+
         # This is (currently) valid for `next` only
         #
         # In this case, Timecop correctly handles Date.parse (see ReplanHelper#convert_header_to_date),
