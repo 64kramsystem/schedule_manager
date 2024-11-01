@@ -110,7 +110,7 @@ describe Relister do
     ])
 
     expect {
-      subject.execute(test_content, export: true)
+      subject.execute(test_content, export: first_date)
     }.to output(expected_output).to_stdout
   end
 

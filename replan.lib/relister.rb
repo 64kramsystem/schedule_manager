@@ -87,15 +87,17 @@ class Relister
   #
   EVENTS_REGEX = ->(event_symbols) { /^\s*[#{event_symbols}] / }
   INTERVAL_START_REGULAR = -> { Date.today + 1 }
-  INTERVAL_START_EXPORT = -> { Date.today - 1 }
 
   def initialize(event_symbols)
     @replan_codec = ReplanCodec.new
     @event_symbols = event_symbols
   end
 
-  def execute(content, export:)
-    interval_start = export ? INTERVAL_START_EXPORT[] : INTERVAL_START_REGULAR[]
+  # params:
+  #   :export: Date to start the export from (inclusive)
+  #
+  def execute(content, export: nil)
+    interval_start = export || INTERVAL_START_REGULAR[]
 
     formatter_class, interval_end = if export
       [JsonFormatter, find_last_date(content)]

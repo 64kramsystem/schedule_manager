@@ -50,10 +50,16 @@ def conditional_save(content, original_content, schedule_filename, archive_filen
 end
 
 class Replan
-  def list(schedule_filename, event_symbols, export:)
-    content = IO.read(schedule_filename)
+  def list(schedule_filename, archive_filename, event_symbols, export: nil)
+    current_content = IO.read(schedule_filename)
+    archive_content = IO.read(archive_filename)
 
-    Relister.new(event_symbols).execute(content, export:)
+    # For listing purposes, the archive is not relevant, but the Relister default start takes care
+    # of this.
+    #
+    complete_content = archive_content + "\n" + current_content
+
+    Relister.new(event_symbols).execute(complete_content, export:)
   end
 
   def update(schedule_filename, archive_filename, template_filename:, compare:, skips_only:, debug:)
@@ -75,7 +81,7 @@ if __FILE__ == $PROGRAM_NAME
     [ "-d", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
-    [ "-x", "--export",        "Export mode: list with JSON output and no limits"],
+    [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
     [ "-s", "--skips-only",    "Only move skips/once-offs"],
     [ "-w", "--work",          "Compute the work hours for the current day"],
   ) || exit
@@ -84,7 +90,7 @@ if __FILE__ == $PROGRAM_NAME
   schedule_filename = configuration.schedule_filename.full_path
   event_symbols = configuration.event_symbols
 
-  export = !!options[:export]
+  export = options[:export]
   list = !!options[:list]
   work = !!options[:work]
   debug = options.delete(:debug)
@@ -94,14 +100,19 @@ if __FILE__ == $PROGRAM_NAME
   end
 
   begin
-    if export
+    if !!export
       raise "Export mode is not compatible with other options" if options.size > 1
 
-      Replan.new.list(schedule_filename, event_symbols, export: true)
+      archive_filename = configuration.archive_filename.full_path
+      export = Date.parse(export, '%F')
+
+      Replan.new.list(schedule_filename, archive_filename, event_symbols, export:)
     elsif list
       raise "List mode is not compatible with other options" if options.size > 1
 
-      Replan.new.list(schedule_filename, event_symbols, export: false)
+      archive_filename = configuration.archive_filename.full_path
+
+      Replan.new.list(schedule_filename, archive_filename, event_symbols)
     else
       if work
         content = IO.read(schedule_filename)
