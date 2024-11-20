@@ -23,7 +23,10 @@ class Reworker
   #
   WORK_TASK_PATTERN = /^( *)\S( \d+:\d+\.)? work(?: \(.+\))?( -?\d+((\.\d+)?h)?)?$/
 
-  ADDED_TASK_TEMPLATE = -> { "lpimw -t ye '%s' # -c half|off\n" }
+  # The day reference approach is the simplest one to allow running this command on different days
+  # (use case: re-run it on a separate system on a different day).
+  #
+  ADDED_TASK_TEMPLATE = -> { "lpimw -t #{(Date.today - 1).strftime "%F"} '%s' # -c half|off\n" }
 
   # - (start_time, end_time, reduction) and (interval) are two mutually exclusive groups
   #

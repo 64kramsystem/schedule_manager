@@ -37,13 +37,15 @@ describe Reworker do
 
     TEXT
 
-    result = described_class.new.execute(content)
+    result = Timecop.freeze(Date.new(2021, 6, 8)) do
+      described_class.new.execute(content)
+    end
 
     expected_result = <<~TEXT
           TUE 08/JUN/2021
       - foo
         - shell-dos
-          lpimw -t ye '9:00-10:00, 10:00-15:00 -1.5h, 15:20-16:00, 16:00-17:00 -10, 17:20-17:30, 1h, 20' # -c half|off
+          lpimw -t 2021-06-07 '9:00-10:00, 10:00-15:00 -1.5h, 15:20-16:00, 16:00-17:00 -10, 17:20-17:30, 1h, 20' # -c half|off
           bar
 
     TEXT
