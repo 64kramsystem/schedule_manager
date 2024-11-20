@@ -23,7 +23,7 @@ class Reworker
   #
   WORK_TASK_PATTERN = /^( *)\S( \d+:\d+\.)? work(?: \(.+\))?( -?\d+((\.\d+)?h)?)?$/
 
-  ADDED_TASK_TEMPLATE = "lpimw -t ye '%s' # -c half|off\n"
+  ADDED_TASK_TEMPLATE = -> { "lpimw -t ye '%s' # -c half|off\n" }
 
   # - (start_time, end_time, reduction) and (interval) are two mutually exclusive groups
   #
@@ -186,7 +186,7 @@ class Reworker
     # Consider that anything before the pattern \K metachar is not replaced.
     #
     section.sub(INSERTION_POINT_PATTERN) do |match|
-      "#{$LAST_MATCH_INFO[1]}  " + ADDED_TASK_TEMPLATE % work_times
+      "#{$LAST_MATCH_INFO[1]}  " + ADDED_TASK_TEMPLATE[] % work_times
     end
   end
 end
