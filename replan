@@ -18,6 +18,10 @@ require_relative "#{File.basename(__FILE__)}.lib/retemplater"
 require_relative "#{File.basename(__FILE__)}.lib/reworker"
 require_relative "#{File.basename(__FILE__)}.lib/remover"
 
+# Required only when comparing on update.
+#
+MERGE_PROGRAM = ENV["SCRIPTING_MERGE_PROGRAM"]
+
 def to_i(bool)
   bool ? 1 : 0
 end
@@ -25,9 +29,11 @@ end
 def conditional_save(content, original_content, schedule_filename, archive_filename, compare: false, skips_only:)
   if content != original_content
     if compare
+      merge_program = MERGE_PROGRAM || raise("$SCRIPTING_MERGE_PROGRAM is required when saving with compare")
+
       updated_file = Tempfile.new('new').path
       IO.write updated_file, content
-      `meld #{schedule_filename.shellescape} #{updated_file.shellescape}`
+      `#{merge_program} #{schedule_filename.shellescape} #{updated_file.shellescape}`
 
       puts "Press `y` to commit the changes!"
       confirm_commit = $stdin.getch
