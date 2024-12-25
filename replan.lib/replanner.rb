@@ -210,6 +210,14 @@ class Replanner
         displacement += 7 if $LAST_MATCH_INFO[2]
 
         displacement
+      when %r|^(\w{3}/\d{1,2})$|
+        # The current year is always assigned.
+        #
+        next_date = Date.strptime($LAST_MATCH_INFO[0], "%b/%d")
+
+        next_date >>= 12 if next_date < current_date
+
+        next_date - current_date
       else
         raise "Invalid replan value: #{replan_value.inspect}; line: #{line.inspect}"
       end

@@ -701,6 +701,22 @@ describe Replanner do
         assert_replan(test_content, expected_next_date_section)
       end
 
+      # `dec/31 in N` is also supported, but since it's not useful, its "undocumented".
+      #
+      it "Should allow month/day to be supported as next occurrence" do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan tue dec/31)
+        TXT
+
+        expected_next_date_section = <<~TXT
+            FRI 31/DEC/2021
+        - foo (replan tue)
+        TXT
+
+        assert_replan(test_content, expected_next_date_section)
+      end
+
       it "Should set the day in the following week, when the weekday matches the current day" do
         test_content = <<~TXT
             MON 20/SEP/2021
