@@ -43,6 +43,7 @@ rule
   next
     : IN WHITESPACE INTERVAL       { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
     | DAY                          { self.v_next = val.fetch(0) }
+    | MONTH_DAY                    { self.v_next = val.fetch(0) }
     ;
 end
 

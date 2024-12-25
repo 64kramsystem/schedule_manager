@@ -26,7 +26,7 @@ class ReplanCodec
   # - update      : `u` (optional)
   # - update_full : `U` (optional)
   # - interval    : interval format
-  # - next        : interval format, `%a` (optional)
+  # - next        : interval format, `%a`, `%b/%d` (optional)
   #
   def extract_replan_tokens(line, allow_placeholder: false)
     replan_content = line[REPLAN_REGEX, 1] || raise("Trying to parse replan on a non-replan line")

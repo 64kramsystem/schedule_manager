@@ -77,6 +77,9 @@ class ReplanParser < Racc::Parser
                   when (text = @ss.scan(/\+\d?(mon|tue|wed|thu|fri|sat|sun)/))
                      action { [:FIRST_DAY, text] }
 
+                  when (text = @ss.scan(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/\d{1,2}/))
+                     action { [:MONTH_DAY, text] }
+
                   when (text = @ss.scan(/f/))
                      action { [:F, text] }
 
