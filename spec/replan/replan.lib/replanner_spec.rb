@@ -687,7 +687,7 @@ describe Replanner do
 
       # `tue in N` is also supported, but since it's not useful, its "undocumented".
       #
-      it "Should allow weeday+ to be supported as next occurrence" do
+      it "Should allow weekday+ to be supported as next occurrence" do
         test_content = <<~TXT
             MON 20/SEP/2021
         - foo (replan tue tue+)
