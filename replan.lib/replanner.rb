@@ -93,6 +93,10 @@ class Replanner
         # No-op if the update didn't change the content
         #
         edited_current_date_section = edited_current_date_section.sub(replan_line, edited_replan_line)
+
+        if skips_only && !debug && replan_line != edited_replan_line
+          puts "> Moving line: #{replan_line.strip}"
+        end
       end
 
       # No-op if no changes have been performed (see conditional before change block).

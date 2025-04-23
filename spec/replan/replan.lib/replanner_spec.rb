@@ -9,17 +9,18 @@ module ReplannerSpecHelper
   # A simpler (UX-wise, not code-wise) implementation is to automatically gather the current_date
   # from the first header in the test_content, although this may be a bit too magical.
   #
-  def assert_replan(test_content, expected_next_date_section, current_date: CURRENT_DATE, skips_only: false)
+  def assert_replan(test_content, expected_next_date_section, current_date: CURRENT_DATE, skips_only: false, expected_stdout: //)
     # As of Jul/2024, an empty ending line is required by the parser, but it's very easy to forget,
     # and it causes a confusing error. For this reason, we add it automatically (if needed).
     #
     test_content += "\n" if !test_content.end_with?("\n\n")
 
-    result = Timecop.freeze(current_date) do
-      subject.execute(test_content, skips_only:)
+    Timecop.freeze(current_date) do
+      expect {
+        result = subject.execute(test_content, skips_only:)
+        expect(result).to include(expected_next_date_section)
+      }.to output(expected_stdout).to_stdout
     end
-
-    expect(result).to include(expected_next_date_section)
   end
 end
 
@@ -109,7 +110,14 @@ describe Replanner do
       -----
       TXT
 
-      assert_replan(test_content, expected_updated_content, skips_only: true)
+      expected_stdout = <<~TXT
+        > Moving line: - today once (replan o in 7)
+        > Moving line: - today skip (replan s 7)
+        > Moving line: - tomorrow once (replan o in 7)
+        > Moving line: - tomorrow skip (replan s 7)
+      TXT
+
+      assert_replan(test_content, expected_updated_content, skips_only: true, expected_stdout:)
     end
   end
 
