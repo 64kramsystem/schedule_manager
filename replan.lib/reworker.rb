@@ -9,9 +9,11 @@ class Reworker
   include ReplanHelper
   include SharedConstants
 
-  # New line is inserted after this, with an extra indentation level.
+  LPIM_TEMPLATE = "#LPIM_INSERT\n"
+  # The day reference approach is the simplest one to allow running this command on different days
+  # (use case: re-run it on a separate system on a different day).
   #
-  INSERTION_POINT_PATTERN = /^(\s+)- shell-dos\n\K/
+  LPIM_GENERATOR = -> { "lpimw -t #{(Date.today - 1).strftime "%F"} '%s' # -c half|off\n" }
 
   # Valid reduction/intervals:
   #
@@ -22,11 +24,6 @@ class Reworker
   # it from `h)?` backwards.
   #
   WORK_TASK_PATTERN = /^( *)\S( \d+:\d+\.)? work(?: \(.+\))?( -?\d+((\.\d+)?h)?)?$/
-
-  # The day reference approach is the simplest one to allow running this command on different days
-  # (use case: re-run it on a separate system on a different day).
-  #
-  ADDED_TASK_TEMPLATE = -> { "lpimw -t #{(Date.today - 1).strftime "%F"} '%s' # -c half|off\n" }
 
   # - (start_time, end_time, reduction) and (interval) are two mutually exclusive groups
   #
@@ -184,12 +181,8 @@ class Reworker
 
   def add_lpim_to_next_day(section, work_times)
     raise "Found lpim in next day!" if section =~ /\blpimw\b/
-    raise "Insertion point not found!" if section !~ INSERTION_POINT_PATTERN
+    raise "Insertion point not found!" if !section.include?(LPIM_TEMPLATE)
 
-    # Consider that anything before the pattern \K metachar is not replaced.
-    #
-    section.sub(INSERTION_POINT_PATTERN) do |match|
-      "#{$LAST_MATCH_INFO[1]}  " + ADDED_TASK_TEMPLATE[] % work_times
-    end
+    section.sub(LPIM_TEMPLATE, LPIM_GENERATOR[] % work_times)
   end
 end
