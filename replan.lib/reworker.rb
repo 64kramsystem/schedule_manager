@@ -13,7 +13,7 @@ class Reworker
   # The day reference approach is the simplest one to allow running this command on different days
   # (use case: re-run it on a separate system on a different day).
   #
-  LPIM_GENERATOR = -> { "lpimw -t #{(Date.today - 1).strftime "%F"} '%s' # -c half|off\n" }
+  LPIM_GENERATOR = -> { (Date.today - 1).strftime "lpimw -t %F '%%s' # -c half|off\n" }
 
   # Valid reduction/intervals:
   #
