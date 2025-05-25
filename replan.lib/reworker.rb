@@ -180,7 +180,6 @@ class Reworker
   end
 
   def add_lpim_to_next_day(section, work_times)
-    raise "Found lpim in next day!" if section =~ /\blpimw\b/
     raise "Insertion point not found!" if !section.include?(LPIM_TEMPLATE)
 
     section.sub(LPIM_TEMPLATE, LPIM_GENERATOR[] % work_times)
