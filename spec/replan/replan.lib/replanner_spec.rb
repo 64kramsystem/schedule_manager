@@ -27,10 +27,6 @@ end
 describe Replanner do
   include ReplannerSpecHelper
 
-  # Check condition that causes ignoring.
-  #
-  it 'should not ignore skipped/once-off on days from tomorrow'
-
   context "Events" do
     it "should be moved according to their current day property, in default mode" do
       test_content = <<~TXT
@@ -118,6 +114,28 @@ describe Replanner do
       TXT
 
       assert_replan(test_content, expected_updated_content, skips_only: true, expected_stdout:)
+    end
+
+    it 'should process skipped/once-off events on future days' do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+
+          TUE 21/SEP/2021
+      - tomorrow skip (replan s 7)
+      - tomorrow once (replan o in 7)
+      TXT
+
+      expected_next_date_section = <<~TXT
+          TUE 28/SEP/2021
+      - tomorrow skip (replan 7)
+      - tomorrow once
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_next_date_section)
     end
   end
 
