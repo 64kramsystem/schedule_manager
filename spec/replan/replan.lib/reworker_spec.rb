@@ -106,5 +106,23 @@ describe Reworker do
 
       expect { subject.execute(content) }.to raise_error('Subsequent entry has no time! (previous: "- 15:20. work")')
     end
+
+    it "should raise an error if the insertion point is not found in the next day section" do
+      content = <<~TEXT
+            MON 07/JUN/2021
+        - 9:00. work
+        - 10:00. foo
+
+            TUE 08/JUN/2021
+        - foo
+          - shell-dos
+            bar
+
+      TEXT
+
+      Timecop.freeze(Date.new(2021, 6, 8)) do
+        expect { described_class.new.execute(content) }.to raise_error('Insertion point not found!')
+      end
+    end
   end # context "errors"
 end # describe Reworker
