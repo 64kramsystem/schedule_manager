@@ -20,7 +20,9 @@ class Remover
     current_date = find_first_date(content)
     current_date_section = find_date_section(content, current_date)
 
-    raise "Found `replan` token into current date (#{current_date}) section!" if current_date_section =~ /\breplan\b/
+    if (lines_with_replan = current_date_section.lines.grep(/\breplan\b/)).any?
+      raise "Found unsubstituted `replan`s into current date (#{current_date}) section!; first occurrence: #{lines_with_replan.first.chomp.inspect}"
+    end
     raise "Found todo section into current date (#{current_date}) section!" if current_date_section =~ TODO_SECTION_SEPARATOR_REGEX
 
     content = content.sub(current_date_section, "")

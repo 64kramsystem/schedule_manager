@@ -34,6 +34,6 @@ describe Remover do
     phony_schedule_file = Tempfile.create('schedule')
     phony_archive_file = Tempfile.create('archive')
 
-    expect { subject.execute(phony_schedule_file, phony_archive_file, content) }.to raise_error('Found `replan` token into current date (2021-09-20) section!')
+    expect { subject.execute(phony_schedule_file, phony_archive_file, content) }.to raise_error('Found unsubstituted `replan`s into current date (2021-09-20) section!; first occurrence: "- foo (replan 1)"')
   end
 end # describe Remover
