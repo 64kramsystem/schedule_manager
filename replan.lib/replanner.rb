@@ -10,7 +10,7 @@ class Replanner
   include SharedConstants
 
   INTERPOLATIONS = {
-    %r<[a-z]{3}/\d{2}> => ->(date) { date.strftime('%a/%d').downcase } # "mon/19"
+    %r<[a-z]{3}/\d{2}> => ->(_, curr_date, _, skip) { curr_date.strftime('%a/%d').downcase unless skip}, # "mon/19"
   }
 
   def initialize
@@ -70,11 +70,11 @@ class Replanner
           raise "Unsupported: Multiple instances of the same update replan text: #{replan_line.rstrip.inspect}"
         end
 
+        planned_date = decode_planned_date(replan_data, current_date, replan_line)
+
         planned_line = handle_time(planned_line, replan_data)
         planned_line = compose_planned_line(planned_line)
-        planned_line = apply_interpolations(planned_line, current_date) unless replan_data.skip
-
-        planned_date = decode_planned_date(replan_data, current_date, replan_line)
+        planned_line = apply_interpolations(planned_line, current_date, planned_date, replan_data.skip)
 
         insertion_date = find_preceding_or_existing_date(content, planned_date)
 
@@ -233,10 +233,14 @@ class Replanner
     @replan_codec.remove_replan(line)
   end
 
-  def apply_interpolations(line, date)
+  def apply_interpolations(line, current_date, planned_date, skip)
     INTERPOLATIONS.inject(line) do |line, (matcher, replacement)|
-      new_content = replacement[date]
-      line.gsub(/\{\{#{matcher}\}\}/, "\{\{#{new_content}\}\}")
+      if line =~ /\{\{#{matcher}\}\}/
+        new_content = replacement[Regexp.last_match, current_date, planned_date, skip]
+        line = line.gsub(/\{\{#{matcher}\}\}/, "\{\{#{new_content}\}\}") if new_content
+      end
+
+      line
     end
   end
 
