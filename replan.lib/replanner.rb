@@ -11,6 +11,7 @@ class Replanner
 
   INTERPOLATIONS = {
     %r<[a-z]{3}/\d{2}> => ->(_, curr_date, _, skip) { curr_date.strftime('%a/%d').downcase unless skip}, # "mon/19"
+    /(-\d+)/ => ->(match, curr_date, plan_date, _) { match[1].to_i - (plan_date - curr_date).to_i }, # "-3"
   }
 
   def initialize
