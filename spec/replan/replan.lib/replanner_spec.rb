@@ -394,15 +394,15 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "Should apply the days past interpolation {{-N}}" do
+    it "Should apply the days past interpolation {{-N}}, with reset" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      - foo {{-0}} (replan 1w)
+      - foo {{-3}} (replan 1w)
       TXT
 
       expected_updated_content = <<~TXT
           MON 20/SEP/2021
-      - foo {{-0}}
+      - foo {{-3}}
 
           MON 27/SEP/2021
       - foo {{-7}} (replan 1w)
@@ -411,17 +411,17 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "Should apply the days past interpolation {{-N}} also  on :skip" do
+    it "Should apply the days past interpolation {{-N}} on :skip, with accumulation" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      - foo {{-2}} (replan s 1w)
+      - bar {{-3}} (replan s 1w)
       TXT
 
       expected_updated_content = <<~TXT
           MON 20/SEP/2021
 
           MON 27/SEP/2021
-      - foo {{-9}} (replan 1w)
+      - bar {{-10}} (replan 1w)
       TXT
 
       assert_replan(test_content, expected_updated_content)
