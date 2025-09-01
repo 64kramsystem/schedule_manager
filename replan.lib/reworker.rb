@@ -10,6 +10,7 @@ class Reworker
   include SharedConstants
 
   LPIM_REPLACE_PLACEHOLDER = "#LPIM_REPLACE\n"
+  LPIM_INSERT_PLACEHOLDER = "#LPIM_INSERT\n"
 
   # The day reference approach is the simplest one to allow running this command on different days
   # (use case: re-run it on a separate system on a different day).
@@ -69,12 +70,7 @@ class Reworker
 
     return if @extract_only
 
-    next_date = current_date + 1
-    next_date_section = find_date_section(content, next_date)
-
-    new_next_date_section = add_lpim_to_next_day(next_date_section, work_times)
-
-    content.sub(next_date_section, new_next_date_section)
+    add_lpim_to_content(content, work_times)
   end
 
   # Compute the hours of work for the first date (rounded to two decimals).
@@ -180,9 +176,23 @@ class Reworker
     work_entries.join(', ')
   end
 
-  def add_lpim_to_next_day(section, work_times)
-    raise "Insertion point not found!" if !section.include?(LPIM_REPLACE_PLACEHOLDER)
+  def add_lpim_to_content(content, work_times)
+    # The replace matcher is just for consistency (include?() could be used`).
+    replace_matcher = /#{Regexp.escape LPIM_REPLACE_PLACEHOLDER}/
+    insert_matcher = /( +)#{Regexp.escape LPIM_INSERT_PLACEHOLDER}/
 
-    section.sub(LPIM_REPLACE_PLACEHOLDER, LPIM_GENERATOR[] % work_times)
+    case
+    when content =~ replace_matcher && content =~ insert_matcher
+      # Could be allowed, but it doesn't make much sense
+      raise "Both replacement and insertion points found!"
+    when content =~ replace_matcher
+      added_text = LPIM_GENERATOR[] % work_times
+      content.sub(replace_matcher, added_text)
+    when content =~ insert_matcher
+      added_text = Regexp.last_match[1] + LPIM_GENERATOR[] % work_times + Regexp.last_match[0]
+      content.sub(insert_matcher, added_text)
+    else
+      raise "No replacement or insertion point found!"
+    end
   end
 end

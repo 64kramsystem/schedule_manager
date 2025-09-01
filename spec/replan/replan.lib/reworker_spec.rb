@@ -8,52 +8,58 @@ describe Reworker do
   #
   let(:subject) { described_class.new(extract_only: true) }
 
-  # Includes all the work formats, although not the whole code paths.
-  #
-  it 'compute the work times and add the accounting entry to the following day' do
-    content = <<~TEXT
-          MON 07/JUN/2021
-      - 9:00. work
-      - 10:00. foo
-      - 10:00. work (some comment) -1.5h
-      -----
-      * 15:00. foo
-        - 15:20. work
-          ~ foo
-        . 16:00. foo
-      - 16:00. work -10
-      - 17:00. foo
-        - 17:20. work
-      - 17:30. foo
-      - work 1h
-      ~ work 20
-      -----
-      -----
-      -----
+  context "Accounting entry" do
+    it 'add the accounting entry via LPIM_REPLACE' do
+      content = <<~TEXT
+            MON 07/JUN/2021
+        - work 1h
 
-          TUE 08/JUN/2021
-      - foo
+            WED 09/JUN/2021
         - shell-dos
           #LPIM_REPLACE
-          bar
 
-    TEXT
+      TEXT
 
-    result = Timecop.freeze(Date.new(2021, 6, 8)) do
-      described_class.new.execute(content)
+      result = Timecop.freeze(Date.new(2021, 6, 8)) do
+        described_class.new.execute(content)
+      end
+
+      expected_result = <<~TEXT
+            WED 09/JUN/2021
+        - shell-dos
+          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+
+      TEXT
+
+      expect(result).to include(expected_result)
     end
 
-    expected_result = <<~TEXT
-          TUE 08/JUN/2021
-      - foo
+    it 'add the accounting entry via LPIM_INSERT (retaining the placeholder)' do
+      content = <<~TEXT
+            MON 07/JUN/2021
+        - work 1h
+
+            WED 09/JUN/2021
         - shell-dos
-          lpimw -t 2021-06-07 '9:00-10:00, 10:00-15:00 -1.5h, 15:20-16:00, 16:00-17:00 -10, 17:20-17:30, 1h, 20' # -c half|off # Mon
-          bar
+          #LPIM_INSERT
 
-    TEXT
+      TEXT
 
-    expect(result).to include(expected_result)
-  end
+      result = Timecop.freeze(Date.new(2021, 6, 8)) do
+        described_class.new.execute(content)
+      end
+
+      expected_result = <<~TEXT
+            WED 09/JUN/2021
+        - shell-dos
+          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+          #LPIM_INSERT
+
+      TEXT
+
+      expect(result).to include(expected_result)
+    end
+  end # context "Accounting entry"
 
   it 'compute the work hours' do
     content = <<~TEXT
@@ -108,22 +114,38 @@ describe Reworker do
       expect { subject.execute(content) }.to raise_error('Subsequent entry has no time! (previous: "- 15:20. work")')
     end
 
-    it "should raise an error if the insertion point is not found in the next day section" do
-      content = <<~TEXT
-            MON 07/JUN/2021
-        - 9:00. work
-        - 10:00. foo
+    context "Accounting entry" do
+      it 'raise an error if no LPIM_REPLACE and LPIM_INSERT are present' do
+        content = <<~TEXT
+              MON 07/JUN/2021
+          - work 1h
 
-            TUE 08/JUN/2021
-        - foo
-          - shell-dos
-            bar
+              TUE 08/JUN/2021
+          - foo
 
-      TEXT
+        TEXT
 
-      Timecop.freeze(Date.new(2021, 6, 8)) do
-        expect { described_class.new.execute(content) }.to raise_error('Insertion point not found!')
+        Timecop.freeze(Date.new(2021, 6, 8)) do
+          expect { described_class.new.execute(content) }.to raise_error('No replacement or insertion point found!')
+        end
       end
-    end
+
+      it 'raise an error if both LPIM_REPLACE and LPIM_INSERT are present' do
+        content = <<~TEXT
+              MON 07/JUN/2021
+          - work 1h
+
+              WED 09/JUN/2021
+          - shell-dos
+            #LPIM_REPLACE
+            #LPIM_INSERT
+
+        TEXT
+
+        Timecop.freeze(Date.new(2021, 6, 8)) do
+          expect { described_class.new.execute(content) }.to raise_error('Both replacement and insertion points found!')
+        end
+      end
+    end # context "Accounting entry"
   end # context "errors"
 end # describe Reworker
