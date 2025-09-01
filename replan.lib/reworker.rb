@@ -9,7 +9,8 @@ class Reworker
   include ReplanHelper
   include SharedConstants
 
-  LPIM_TEMPLATE = "#LPIM_INSERT\n"
+  LPIM_REPLACE_PLACEHOLDER = "#LPIM_REPLACE\n"
+
   # The day reference approach is the simplest one to allow running this command on different days
   # (use case: re-run it on a separate system on a different day).
   #
@@ -180,8 +181,8 @@ class Reworker
   end
 
   def add_lpim_to_next_day(section, work_times)
-    raise "Insertion point not found!" if !section.include?(LPIM_TEMPLATE)
+    raise "Insertion point not found!" if !section.include?(LPIM_REPLACE_PLACEHOLDER)
 
-    section.sub(LPIM_TEMPLATE, LPIM_GENERATOR[] % work_times)
+    section.sub(LPIM_REPLACE_PLACEHOLDER, LPIM_GENERATOR[] % work_times)
   end
 end

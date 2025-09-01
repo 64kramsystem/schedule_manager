@@ -33,7 +33,7 @@ describe Reworker do
           TUE 08/JUN/2021
       - foo
         - shell-dos
-          #LPIM_INSERT
+          #LPIM_REPLACE
           bar
 
     TEXT
