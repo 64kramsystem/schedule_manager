@@ -1,4 +1,5 @@
 require 'rspec'
+require 'timecop'
 
 require_relative '../../../replan.lib/reworker.rb'
 
