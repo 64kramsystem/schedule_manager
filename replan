@@ -21,6 +21,7 @@ require_relative "#{File.basename(__FILE__)}.lib/remover"
 # Required only when comparing on update.
 #
 MERGE_PROGRAM = ENV["SCRIPTING_MERGE_PROGRAM"]
+TEMPLATE = ENV["TEMPLATE"]
 
 def to_i(bool)
   bool ? 1 : 0
@@ -126,7 +127,7 @@ if __FILE__ == $PROGRAM_NAME
         puts "Work hours: #{work_hours}"
       else
         archive_filename = configuration.archive_filename.full_path
-        template_filename = configuration.template_filename&.full_path
+        template_filename = TEMPLATE || configuration.template_filename&.full_path
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
 
