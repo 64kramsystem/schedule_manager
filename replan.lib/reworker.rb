@@ -182,15 +182,14 @@ class Reworker
     insert_matcher = /( +)#{Regexp.escape LPIM_INSERT_PLACEHOLDER}/
 
     case
-    when content =~ replace_matcher && content =~ insert_matcher
-      # Could be allowed, but it doesn't make much sense
-      raise "Both replacement and insertion points found!"
+    when (content =~ replace_matcher && content =~ insert_matcher) || content =~ insert_matcher
+      # In a certain use case we have both - in such case we add to the insert placeholder.
+      #
+      added_text = Regexp.last_match[1] + LPIM_GENERATOR[] % work_times + Regexp.last_match[0]
+      content.sub(insert_matcher, added_text)
     when content =~ replace_matcher
       added_text = LPIM_GENERATOR[] % work_times
       content.sub(replace_matcher, added_text)
-    when content =~ insert_matcher
-      added_text = Regexp.last_match[1] + LPIM_GENERATOR[] % work_times + Regexp.last_match[0]
-      content.sub(insert_matcher, added_text)
     else
       raise "No replacement or insertion point found!"
     end

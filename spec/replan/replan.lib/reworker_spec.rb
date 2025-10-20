@@ -59,6 +59,34 @@ describe Reworker do
 
       expect(result).to include(expected_result)
     end
+
+    it 'add the accounting entry via LPIM_INSERT, when also LPIM_REPLACE is present' do
+      content = <<~TEXT
+            MON 07/JUN/2021
+        - work 1h
+
+            WED 09/JUN/2021
+        - shell-dos
+          #LPIM_INSERT
+          #LPIM_REPLACE
+
+      TEXT
+
+      result = Timecop.freeze(Date.new(2021, 6, 8)) do
+        described_class.new.execute(content)
+      end
+
+      expected_result = <<~TEXT
+            WED 09/JUN/2021
+        - shell-dos
+          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+          #LPIM_INSERT
+          #LPIM_REPLACE
+
+      TEXT
+
+      expect(result).to include(expected_result)
+    end
   end # context "Accounting entry"
 
   it 'compute the work hours' do
@@ -127,23 +155,6 @@ describe Reworker do
 
         Timecop.freeze(Date.new(2021, 6, 8)) do
           expect { described_class.new.execute(content) }.to raise_error('No replacement or insertion point found!')
-        end
-      end
-
-      it 'raise an error if both LPIM_REPLACE and LPIM_INSERT are present' do
-        content = <<~TEXT
-              MON 07/JUN/2021
-          - work 1h
-
-              WED 09/JUN/2021
-          - shell-dos
-            #LPIM_REPLACE
-            #LPIM_INSERT
-
-        TEXT
-
-        Timecop.freeze(Date.new(2021, 6, 8)) do
-          expect { described_class.new.execute(content) }.to raise_error('Both replacement and insertion points found!')
         end
       end
     end # context "Accounting entry"
