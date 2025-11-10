@@ -288,6 +288,26 @@ describe Replanner do
     end
   end # context "last numbered day of month interval"
 
+  it "Should perform cleanups" do
+    test_content = <<~TXT
+        MON 20/SEP/2021
+    - foo
+    ~
+    - bar
+    ~
+    baz
+    TXT
+
+    expected_updated_content = <<~TXT
+        MON 20/SEP/2021
+    - foo
+    - bar
+    baz
+    TXT
+
+    assert_replan(test_content, expected_updated_content)
+  end
+
   it "Should add the replanned lines to the same time bracket as the original" do
     test_content = <<~TXT
         MON 20/SEP/2021

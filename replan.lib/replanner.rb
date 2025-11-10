@@ -17,6 +17,10 @@ class Replanner
     end,
   }
 
+  CLEANUP_PATTERNS = [
+    /^~\n/,
+  ]
+
   def initialize
     @replan_codec = ReplanCodec.new
   end
@@ -28,6 +32,10 @@ class Replanner
       current_date_section = find_date_section(content, current_date)
 
       edited_current_date_section = current_date_section.dup
+
+      CLEANUP_PATTERNS.each do |pattern|
+        edited_current_date_section.gsub!(pattern, '')
+      end
 
       replan_lines = find_replan_lines(current_date_section)
 
