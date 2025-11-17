@@ -249,7 +249,11 @@ class Replanner
     INTERPOLATIONS.each do |matcher, replacement|
       if line =~ /\{\{#{matcher}\}\}/
         new_content = replacement[Regexp.last_match, current_date, planned_date, skip]
-        line = line.gsub(/\{\{#{matcher}\}\}/, "\{\{#{new_content}\}\}") if new_content
+        if new_content
+          new_line = line.gsub(/\{\{#{matcher}\}\}/, "\{\{#{new_content}\}\}")
+          puts "> Interpolation: #{current_date.strftime("%b/%d")}:'#{line[/^ *\S (.+) \(replan/, 1]}' → #{planned_date.strftime("%b/%d")}:'#{new_line[/^ *\S (.+) \(replan/, 1]}'"
+          line = new_line
+        end
       end
     end
 
