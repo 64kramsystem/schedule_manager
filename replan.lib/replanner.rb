@@ -246,14 +246,14 @@ class Replanner
   end
 
   def apply_interpolations(line, current_date, planned_date, skip)
-    INTERPOLATIONS.inject(line) do |line, (matcher, replacement)|
+    INTERPOLATIONS.each do |matcher, replacement|
       if line =~ /\{\{#{matcher}\}\}/
         new_content = replacement[Regexp.last_match, current_date, planned_date, skip]
         line = line.gsub(/\{\{#{matcher}\}\}/, "\{\{#{new_content}\}\}") if new_content
       end
-
-      line
     end
+
+    line
   end
 
   def handle_time(line, replan_data)
