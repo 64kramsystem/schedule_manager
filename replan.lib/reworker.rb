@@ -183,10 +183,13 @@ class Reworker
 
     case
     when (content =~ replace_matcher && content =~ insert_matcher) || content =~ insert_matcher
-      # In a certain use case we have both - in such case we add to the insert placeholder.
-      #
+      # In a certain use case we have both - in such case we add to the insert placeholder, and
+      # replace the other with a note.
+
       added_text = Regexp.last_match[1] + LPIM_GENERATOR[] % work_times + Regexp.last_match[0]
-      content.sub(insert_matcher, added_text)
+      content = content.sub(insert_matcher, added_text)
+
+      content.sub(replace_matcher, "# (lpim added to insert placeholder)\n" )
     when content =~ replace_matcher
       added_text = LPIM_GENERATOR[] % work_times
       content.sub(replace_matcher, added_text)

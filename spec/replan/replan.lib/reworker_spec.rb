@@ -81,7 +81,7 @@ describe Reworker do
         - shell-dos
           lpimw -t 2021-06-07 '1h' # -c half|off # Mon
           #LPIM_INSERT
-          #LPIM_REPLACE
+          # (lpim added to insert placeholder)
 
       TEXT
 
