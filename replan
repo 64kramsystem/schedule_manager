@@ -58,15 +58,14 @@ end
 
 class Replan
   def list(schedule_filename, archive_filename, event_symbols, export: nil)
-    current_content = IO.read(schedule_filename)
-    archive_content = IO.read(archive_filename)
+    content = IO.read(schedule_filename)
 
-    # For listing purposes, the archive is not relevant, but the Relister default start takes care
-    # of this.
-    #
-    complete_content = archive_content + "\n" + current_content
+    if File.exist?(archive_filename)
+      archive_content = IO.read(archive_filename)
+      content = archive_content + "\n" + content
+    end
 
-    Relister.new(event_symbols).execute(complete_content, export:)
+    Relister.new(event_symbols).execute(content, export:)
   end
 
   def update(schedule_filename, archive_filename, template_filename:, compare:, skips_only:, debug:)
