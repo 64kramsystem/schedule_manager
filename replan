@@ -18,8 +18,7 @@ require_relative "#{File.basename(__FILE__)}.lib/retemplater"
 require_relative "#{File.basename(__FILE__)}.lib/reworker"
 require_relative "#{File.basename(__FILE__)}.lib/remover"
 
-# Required only when comparing on update.
-#
+# Merge program is used on update.
 MERGE_PROGRAM = ENV["SCRIPTING_MERGE_PROGRAM"]
 TEMPLATE = ENV["TEMPLATE"]
 
