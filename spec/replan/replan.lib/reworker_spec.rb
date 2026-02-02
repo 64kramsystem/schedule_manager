@@ -15,8 +15,7 @@ describe Reworker do
         - work 1h
 
             WED 09/JUN/2021
-        - shell-dos
-          #LPIM_REPLACE
+        #LPIM_REPLACE
 
       TEXT
 
@@ -26,8 +25,7 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        - shell-dos
-          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
 
       TEXT
 
@@ -40,8 +38,7 @@ describe Reworker do
         - work 1h
 
             WED 09/JUN/2021
-        - shell-dos
-          #LPIM_INSERT
+        #LPIM_INSERT
 
       TEXT
 
@@ -51,9 +48,8 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        - shell-dos
-          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
-          #LPIM_INSERT
+        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        #LPIM_INSERT
 
       TEXT
 
@@ -66,9 +62,8 @@ describe Reworker do
         - work 1h
 
             WED 09/JUN/2021
-        - shell-dos
-          #LPIM_INSERT
-          #LPIM_REPLACE
+        #LPIM_INSERT
+        #LPIM_REPLACE
 
       TEXT
 
@@ -78,10 +73,9 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        - shell-dos
-          lpimw -t 2021-06-07 '1h' # -c half|off # Mon
-          #LPIM_INSERT
-          # (lpim added to insert placeholder)
+        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        #LPIM_INSERT
+        # (lpim added to insert placeholder)
 
       TEXT
 
