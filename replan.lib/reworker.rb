@@ -179,7 +179,7 @@ class Reworker
   def add_lpim_to_content(content, work_times)
     # The replace matcher is just for consistency (include?() could be used`).
     replace_matcher = /#{Regexp.escape LPIM_REPLACE_PLACEHOLDER}/
-    insert_matcher = /( +)#{Regexp.escape LPIM_INSERT_PLACEHOLDER}/
+    insert_matcher = /( *)#{Regexp.escape LPIM_INSERT_PLACEHOLDER}/
 
     case
     when (content =~ replace_matcher && content =~ insert_matcher) || content =~ insert_matcher
