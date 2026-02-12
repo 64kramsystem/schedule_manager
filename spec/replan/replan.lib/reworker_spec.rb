@@ -25,7 +25,7 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        ; lpimw -t 2021-06-07 '1h' # -c half|off # Mon
 
       TEXT
 
@@ -48,7 +48,7 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        ; lpimw -t 2021-06-07 '1h' # -c half|off # Mon
         #LPIM_INSERT
 
       TEXT
@@ -73,7 +73,7 @@ describe Reworker do
 
       expected_result = <<~TEXT
             WED 09/JUN/2021
-        ` `lpimw -t 2021-06-07 '1h' # -c half|off # Mon
+        ; lpimw -t 2021-06-07 '1h' # -c half|off # Mon
         #LPIM_INSERT
         # (lpim added to insert placeholder)
 
