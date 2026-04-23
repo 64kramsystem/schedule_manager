@@ -18,7 +18,7 @@ class Replanner
   }
 
   CLEANUP_PATTERNS = [
-    /^~\n/,
+    /^[~=]\n/,
   ]
 
   def initialize
