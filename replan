@@ -14,6 +14,7 @@ require_relative "#{File.basename(__FILE__)}.lib/relister"
 require_relative "#{File.basename(__FILE__)}.lib/refixer"
 require_relative "#{File.basename(__FILE__)}.lib/readder"
 require_relative "#{File.basename(__FILE__)}.lib/replanner"
+require_relative "#{File.basename(__FILE__)}.lib/resnapper"
 require_relative "#{File.basename(__FILE__)}.lib/retemplater"
 require_relative "#{File.basename(__FILE__)}.lib/reworker"
 require_relative "#{File.basename(__FILE__)}.lib/remover"
@@ -67,14 +68,24 @@ class Replan
     Relister.new(event_symbols).execute(content, export:)
   end
 
-  def update(schedule_filename, archive_filename, template_filename:, compare:, skips_only:, debug:)
+  def update(schedule_filename, archive_filename, template_filename:, snap_filename: nil, compare:, skips_only:, debug:)
     content = IO.read(schedule_filename)
     original_content = content.dup
 
     content = Refixer.new.execute(content)
     content = Readder.new.execute(content)
-    content = Retemplater.new(template_filename).execute(content) if template_filename && !skips_only
-    content = Reworker.new.execute(content) if !skips_only
+
+    if !skips_only
+      content = Retemplater.new(template_filename).execute(content) if template_filename
+      content = Reworker.new.execute(content)
+
+      if Resnapper.snap_reference?(content)
+        raise "snap_filename is required when schedule contains {{@...}} references" if !snap_filename
+
+        content = Resnapper.new(snap_filename).execute(content)
+      end
+    end
+
     content = Replanner.new.execute(content, debug:, skips_only:)
 
     conditional_save(content, original_content, schedule_filename, archive_filename, compare:, skips_only:)
@@ -126,10 +137,11 @@ if __FILE__ == $PROGRAM_NAME
       else
         archive_filename = configuration.archive_filename.full_path
         template_filename = TEMPLATE || configuration.template_filename&.full_path
+        snap_filename = configuration.snap_filename&.full_path
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
 
-        Replan.new.update(schedule_filename, archive_filename, template_filename:, compare:, skips_only:, debug:)
+        Replan.new.update(schedule_filename, archive_filename, template_filename:, snap_filename:, compare:, skips_only:, debug:)
       end
     end
   rescue => error
