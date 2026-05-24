@@ -38,6 +38,32 @@ describe InputHelper do
       described_class.new.ask('Enter something:', prefill: 'my prefill')
     end
 
+    it "restores the prefill's leading whitespace and strips the user input's" do
+      expect(Reline).to receive(:insert_text).with('foo')
+      allow(Reline).to receive(:redisplay)
+      allow(Reline).to receive(:readline) do
+        Reline.pre_input_hook.call
+        '  bar'
+      end
+
+      result = described_class.new.ask('Enter something:', prefill: '   foo')
+
+      expect(result).to eq('   bar')
+    end
+
+    it 'does not register a pre_input_hook when the prefill is whitespace-only' do
+      hook_during_readline = :unset
+      allow(Reline).to receive(:readline) do
+        hook_during_readline = Reline.pre_input_hook
+        'bar'
+      end
+
+      result = described_class.new.ask('Enter something:', prefill: '   ')
+
+      expect(hook_during_readline).to be_nil
+      expect(result).to eq('   bar')
+    end
+
     it 'does not register a pre_input_hook when prefill is empty' do
       hook_during_readline = :unset
       allow(Reline).to receive(:readline) do
