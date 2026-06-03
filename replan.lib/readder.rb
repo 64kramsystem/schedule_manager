@@ -10,7 +10,7 @@ class Readder
   def execute(content, days: DEFAULT_DAYS_TO_ADD)
     dates_added = 0
     first_date = find_first_date(content)
-    end_date = first_date + DEFAULT_DAYS_TO_ADD
+    end_date = first_date + days
 
     (first_date..end_date).each do |current_date|
       insertion_date = find_preceding_or_existing_date(content, current_date)
