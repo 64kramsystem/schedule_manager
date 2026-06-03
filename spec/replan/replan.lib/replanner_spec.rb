@@ -824,6 +824,34 @@ describe Replanner do
         assert_replan(test_content, expected_next_date_section)
       end
 
+      it "Should allow day/month to be supported as next occurrence" do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan tue 31/dec)
+        TXT
+
+        expected_next_date_section = <<~TXT
+            FRI 31/DEC/2021
+        - foo (replan tue)
+        TXT
+
+        assert_replan(test_content, expected_next_date_section)
+      end
+
+      it "Should assign the next year, when the month/day next occurrence is in the past" do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan tue jan/5)
+        TXT
+
+        expected_next_date_section = <<~TXT
+            WED 05/JAN/2022
+        - foo (replan tue)
+        TXT
+
+        assert_replan(test_content, expected_next_date_section)
+      end
+
       it "Should set the day in the following week, when the weekday matches the current day" do
         test_content = <<~TXT
             MON 20/SEP/2021

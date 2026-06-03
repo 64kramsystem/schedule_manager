@@ -8,7 +8,7 @@ macro
   LAST_DAY    -\d?+(mon|tue|wed|thu|fri|sat|sun)
   LAST_DAYNUM -\d+
   FIRST_DAY   \+\d?(mon|tue|wed|thu|fri|sat|sun)
-  MONTH_DAY   (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/\d{1,2}
+  MONTH_DAY   (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/\d{1,2}|\d{1,2}\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)
   F           f
   S           s
   U_LOW       u

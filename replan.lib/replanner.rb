@@ -226,10 +226,11 @@ class Replanner
         displacement += 7 if $LAST_MATCH_INFO[2]
 
         displacement
-      when %r|^(\w{3}/\d{1,2})$|
+      when %r|^\w{3}/\d{1,2}$|, %r|^\d{1,2}/\w{3}$|
         # The current year is always assigned.
         #
-        next_date = Date.strptime($LAST_MATCH_INFO[0], "%b/%d")
+        format = replan_value.match?(/^\d/) ? "%d/%b" : "%b/%d"
+        next_date = Date.strptime(replan_value, format)
 
         next_date >>= 12 if next_date < current_date
 
