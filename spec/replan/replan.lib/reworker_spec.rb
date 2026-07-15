@@ -103,6 +103,20 @@ describe Reworker do
     expect(result).to eql(expected_result)
   end
 
+  it 'ignore work comments when computing the work hours' do
+    content = <<~TEXT
+          MON 07/JUN/2021
+      - 9:00. work # brogramming
+      - 11:00. blah
+
+    TEXT
+
+    result = subject.compute_first_date_work_hours(content)
+    expected_result = 2.0
+
+    expect(result).to eql(expected_result)
+  end
+
   context "errors" do
     it "should raise an error if a closing entry is missing" do
       content = <<~TEXT
