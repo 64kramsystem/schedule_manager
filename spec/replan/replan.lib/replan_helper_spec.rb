@@ -92,6 +92,20 @@ describe ReplanHelper do
     end
   end # context "find_date_section"
 
+  context "#ensure_trailing_blank_line" do
+    it "should append a blank line when the last section isn't terminated by one" do
+      source_content = "    FRI 24/NOV/2028\n% event (replan 3y)\n-----\n-----\n-----\n-----\n"
+
+      expect(helper.ensure_trailing_blank_line(source_content)).to eql(source_content + "\n")
+    end
+
+    it "should leave content already terminated by a blank line unchanged" do
+      source_content = "    FRI 24/NOV/2028\n-----\n-----\n-----\n-----\n\n"
+
+      expect(helper.ensure_trailing_blank_line(source_content)).to eql(source_content)
+    end
+  end
+
   context "#verify_date_section_header_after" do
     it "should recognize the end-of-schedule separator" do
       source_content = <<~TXT

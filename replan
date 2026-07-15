@@ -57,6 +57,8 @@ def conditional_save(content, original_content, schedule_filename, archive_filen
 end
 
 class Replan
+  include ReplanHelper
+
   def list(schedule_filename, archive_filename, event_symbols, export: nil)
     content = IO.read(schedule_filename)
 
@@ -70,6 +72,11 @@ class Replan
 
   def update(schedule_filename, archive_filename, template_filename:, snap_filename: nil, compare:, skips_only:, debug:)
     content = IO.read(schedule_filename)
+
+    # The last section must be terminated by a blank line (find_date_section requires it); editors can
+    # trim the trailing blank line on save, so restore it before processing.
+    content = ensure_trailing_blank_line(content)
+
     original_content = content.dup
 
     content = Refixer.new.execute(content)

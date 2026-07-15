@@ -132,6 +132,13 @@ module ReplanHelper
   # MODIFICATION
   ##################################################################################################
 
+  # find_date_section requires every section (including the last) to be terminated by a blank line;
+  # editors can trim the file's trailing blank line on save, so restore it.
+  #
+  def ensure_trailing_blank_line(content)
+    content.end_with?("\n\n") ? content : content + "\n"
+  end
+
   def add_new_date_section(content, preceding_date, new_date)
     preceding_date_header = convert_date_to_header(preceding_date)
     preceding_date_section_regex = /^(#{Regexp.escape(preceding_date_header)}.*?^\n)/m
