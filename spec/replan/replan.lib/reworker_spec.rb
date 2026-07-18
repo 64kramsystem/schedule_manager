@@ -1,6 +1,7 @@
 require 'rspec'
 require 'timecop'
 
+require_relative '../../../replan.lib/cleaner.rb'
 require_relative '../../../replan.lib/reworker.rb'
 
 describe Reworker do
@@ -115,6 +116,20 @@ describe Reworker do
     expected_result = 2.0
 
     expect(result).to eql(expected_result)
+  end
+
+  it 'computes work end times after temporary separators are cleaned' do
+    content = <<~TEXT
+          MON 07/JUN/2021
+      - 9:00. work
+      ~
+      - 11:00. foo
+
+    TEXT
+
+    result = subject.compute_first_date_work_hours(Cleaner.new.execute(content))
+
+    expect(result).to eql(2.0)
   end
 
   context "errors" do

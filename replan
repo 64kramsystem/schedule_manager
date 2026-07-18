@@ -13,6 +13,7 @@ require_relative "#{File.basename(__FILE__)}.lib/replan_helper"
 require_relative "#{File.basename(__FILE__)}.lib/relister"
 require_relative "#{File.basename(__FILE__)}.lib/refixer"
 require_relative "#{File.basename(__FILE__)}.lib/readder"
+require_relative "#{File.basename(__FILE__)}.lib/cleaner"
 require_relative "#{File.basename(__FILE__)}.lib/replanner"
 require_relative "#{File.basename(__FILE__)}.lib/resnapper"
 require_relative "#{File.basename(__FILE__)}.lib/retemplater"
@@ -79,6 +80,7 @@ class Replan
 
     original_content = content.dup
 
+    content = Cleaner.new.execute(content)
     content = Refixer.new.execute(content)
     content = Readder.new.execute(content)
 
@@ -138,7 +140,7 @@ if __FILE__ == $PROGRAM_NAME
       Replan.new.list(schedule_filename, archive_filename, event_symbols)
     else
       if work
-        content = IO.read(schedule_filename)
+        content = Cleaner.new.execute(IO.read(schedule_filename))
         work_hours = Reworker.new.compute_first_date_work_hours(content)
         puts "Work hours: #{work_hours}"
       else
