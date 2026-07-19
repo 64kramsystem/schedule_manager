@@ -104,6 +104,18 @@ describe Reworker do
     expect(result).to eql(expected_result)
   end
 
+  it 'supports an exclamation mark as the work type prefix' do
+    content = <<~TEXT
+          MON 07/JUN/2021
+      ! work 1h
+
+    TEXT
+
+    result = subject.compute_first_date_work_hours(content)
+
+    expect(result).to eql(1.0)
+  end
+
   it 'ignore work comments when computing the work hours' do
     content = <<~TEXT
           MON 07/JUN/2021
