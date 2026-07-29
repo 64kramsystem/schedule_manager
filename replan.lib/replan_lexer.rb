@@ -95,6 +95,9 @@ class ReplanParser < Racc::Parser
                   when (text = @ss.scan(/o/))
                      action { [:ONCE, text] }
 
+                  when (text = @ss.scan(/[MNAE]/))
+                     action { [:TIME_BLOCK, text] }
+
                   when (text = @ss.scan(/\d{1,2}:\d\d/))
                      action { [:TIME, text] }
 

@@ -17,6 +17,14 @@ class Replanner
     end,
   }
 
+  TIME_BLOCK_BRACKETS = {
+    'M' => 0,
+    'N' => 1,
+    'A' => 2,
+    'E' => 3,
+  }.freeze
+  private_constant :TIME_BLOCK_BRACKETS
+
   def initialize
     @replan_codec = ReplanCodec.new
   end
@@ -25,6 +33,7 @@ class Replanner
     dates = find_all_dates(content)
 
     dates.each_with_index do |current_date, date_i|
+      appended_replan_counts = Hash.new(0)
       current_date_section = find_date_section(content, current_date)
 
       edited_current_date_section = current_date_section.dup
@@ -86,7 +95,17 @@ class Replanner
           content = add_new_date_section(content, insertion_date, planned_date)
         end
 
-        content = add_line_to_date_section(content, planned_date, planned_line, bracket_i)
+        destination_bracket_i = TIME_BLOCK_BRACKETS.fetch(replan_data.time_block, bracket_i)
+        destination_key = [planned_date, destination_bracket_i]
+        content = add_line_to_date_section(
+          content,
+          planned_date,
+          planned_line,
+          destination_bracket_i,
+          at_end: !replan_data.time_block.nil?,
+          trailing_lines: appended_replan_counts[destination_key],
+        )
+        appended_replan_counts[destination_key] += 1 if replan_data.time_block
 
         edited_replan_line = if replan_data.skip || replan_data.once
           ''

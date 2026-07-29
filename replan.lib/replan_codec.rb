@@ -25,6 +25,7 @@ class ReplanCodec
   # - skip        : `s` (optional)
   # - update      : `u` (optional)
   # - update_full : `U` (optional)
+  # - time_block  : `M`, `N`, `A`, or `E` (optional, consumed after one replan)
   # - interval    : interval format
   # - next        : interval format, `%a`, `%b/%d` (optional)
   #

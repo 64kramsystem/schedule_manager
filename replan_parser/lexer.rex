@@ -14,6 +14,7 @@ macro
   U_LOW       u
   U_UP        U
   ONCE        o
+  TIME_BLOCK  [MNAE]
   TIME        \d{1,2}:\d\d
   INTERVAL    \d+(\.\d+)?[dwmy]?
   IN          in
@@ -31,6 +32,7 @@ rule
   {U_LOW}       { [:U_LOW, text] }
   {U_UP}        { [:U_UP, text] }
   {ONCE}        { [:ONCE, text] }
+  {TIME_BLOCK}  { [:TIME_BLOCK, text] }
   {TIME}        { [:TIME, text] }
   {INTERVAL}    { [:INTERVAL, text] }
   {IN}          { [:IN, text] }

@@ -14,6 +14,7 @@ describe ReplanCodec do
         update: 'u',
         update_full: 'U',
         once: nil,
+        time_block: nil,
         interval: '2w',
         next_prefix: 'in',
         next: '3m',
@@ -30,6 +31,7 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: 'o',
+        time_block: nil,
         interval: nil,
         next_prefix: 'in',
         next: '3m',
@@ -46,6 +48,7 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: nil,
+        time_block: nil,
         interval: 'wed',
         next_prefix: nil,
         next: nil,
@@ -62,10 +65,27 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: nil,
+        time_block: nil,
         interval: '1',
         next_prefix: nil,
         next: nil,
       ))
+    end
+
+    it 'extracts a time-block flag from a once-off replan' do
+      tokens = subject.extract_replan_tokens('(replan oA thu)')
+
+      expect(tokens.once).to eq('o')
+      expect(tokens.time_block).to eq('A')
+      expect(tokens.next).to eq('thu')
+    end
+
+    it 'rejects multiple time-block flags' do
+      expect {
+        expect {
+          subject.extract_replan_tokens('(replan MA 1)')
+        }.to raise_error(RuntimeError, /time-block flag is already assigned/)
+      }.to output(%Q{Error on line "(replan MA 1)"\n}).to_stderr
     end
   end
 
@@ -128,6 +148,10 @@ describe ReplanCodec do
 
     it 'should rewrite a non-fixed replan' do
       expect(subject.rewrite_replan('myevent (replan s 5 in 6)')).to eql('myevent (replan 5)')
+    end
+
+    it 'removes the time-block flag when rewriting a recurring replan' do
+      expect(subject.rewrite_replan('myevent (replan A 5)')).to eql('myevent (replan 5)')
     end
 
     it 'should update a replan description' do

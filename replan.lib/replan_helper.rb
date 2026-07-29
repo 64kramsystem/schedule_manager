@@ -155,14 +155,15 @@ module ReplanHelper
     content.sub(preceding_date_section_regex, "\\1#{new_date_section}")
   end
 
-  # Line is added at the beginning of the given bracket of the given date section.
+  # Line is added at the beginning (or, optionally, the end) of the given bracket of the given date
+  # section.
   # If there aren't enough brackets, the missing ones are added.
   #
   # new_line: doesn't matter if it ends with a newline or note.
   #
   # A nice generic implementation of this could receive {bracket_i => new_line}.
   #
-  def add_line_to_date_section(content, date, new_line, bracket_i)
+  def add_line_to_date_section(content, date, new_line, bracket_i, at_end: false, trailing_lines: 0)
     old_date_section = find_date_section(content, date)
 
     # find_date_section() correctly returns two new lines at the end, but in processing terms, it's
@@ -189,7 +190,14 @@ module ReplanHelper
 
     brackets.fill(brackets.size, TIME_BRACKETS_COUNT - brackets.size + 1) { "" }
 
-    brackets[bracket_i] = brackets[bracket_i].prepend("#{new_line.rstrip}\n")
+    stripped_new_line = "#{new_line.rstrip}\n"
+    brackets[bracket_i] = if at_end
+      bracket_lines = brackets[bracket_i].lines
+      bracket_lines.insert(bracket_lines.length - trailing_lines, stripped_new_line)
+      bracket_lines.join
+    else
+      brackets[bracket_i].prepend(stripped_new_line)
+    end
 
     new_date_section = date_header + brackets.join(TIME_BRACKETS_SEPARATOR)
 

@@ -360,6 +360,134 @@ describe Replanner do
     assert_replan(test_content, expected_updated_content)
   end
 
+  context "Time-block flags" do
+    it "places M, N, A, and E replans at the end of their requested blocks" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - morning (replan oM thu)
+      - noon (replan oN thu)
+      - afternoon (replan oA thu)
+      - evening (replan oE thu)
+
+          THU 23/SEP/2021
+      - existing morning
+      -----
+      - existing noon
+      -----
+      - existing afternoon
+      -----
+      - existing evening
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      - existing morning
+      - morning
+      -----
+      - existing noon
+      - noon
+      -----
+      - existing afternoon
+      - afternoon
+      -----
+      - existing evening
+      - evening
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "removes the flag after placing a recurring replan" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - recurring (replan A thu)
+
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      - recurring (replan thu)
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "preserves the order of multiple replans placed at the end of one block" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - first (replan oA thu)
+      - second (replan oA thu)
+
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      - first
+      - second
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "preserves order when replans from multiple dates target the same block" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - from monday (replan oA thu)
+
+          TUE 21/SEP/2021
+      - from tuesday (replan oA thu)
+
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      - from monday
+      - from tuesday
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+  end
+
   context "Interpolations" do
     it "Should apply the date interpolation {{%a/%d}}" do
       test_content = <<~TXT
