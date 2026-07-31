@@ -28,6 +28,65 @@ describe Replanner do
   include ReplannerSpecHelper
 
   context "Events" do
+    it "moves all descendants with a once-off event" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      + BOM (replan oA thu)
+        + check current account
+        + check credit card
+          - improve bank extracts
+          - check credit
+        + shuffle invoices
+      - unrelated event
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      - unrelated event
+
+          THU 23/SEP/2021
+      -----
+      -----
+      + BOM
+        + check current account
+        + check credit card
+          - improve bank extracts
+          - check credit
+        + shuffle invoices
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "copies all descendants when advancing a recurring event" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      + recurring parent (replan 7)
+        - child
+          - grandchild
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      + recurring parent
+        - child
+          - grandchild
+
+          MON 27/SEP/2021
+      + recurring parent (replan 7)
+        - child
+          - grandchild
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
     it "should be moved according to their current day property, in default mode" do
       test_content = <<~TXT
           MON 20/SEP/2021

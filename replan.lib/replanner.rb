@@ -43,7 +43,7 @@ class Replanner
       # Since the replan entries are pushed to the top of the destination date, process them in reverse,
       # so that they will appear in the original order.
       #
-      replan_lines.reverse.each do |replan_line, bracket_i|
+      replan_lines.reverse.each do |replan_line, bracket_i, child_lines|
         puts "> Processing replan line: #{replan_line.strip}" if debug
 
         event_on_current_date = !(@replan_codec.skipped_event?(replan_line) || @replan_codec.once_off_event?(replan_line))
@@ -88,6 +88,7 @@ class Replanner
         planned_line = handle_time(planned_line, replan_data)
         planned_line = compose_planned_line(planned_line)
         planned_line = apply_interpolations(planned_line, current_date, planned_date, replan_data.skip)
+        planned_line = append_children(planned_line, replan_line, child_lines)
 
         insertion_date = find_preceding_or_existing_date(content, planned_date)
 
@@ -115,7 +116,13 @@ class Replanner
 
         # No-op if the update didn't change the content
         #
-        edited_current_date_section = edited_current_date_section.sub(replan_line, edited_replan_line)
+        source_event = replan_line + child_lines.join
+        edited_source_event = if replan_data.skip || replan_data.once
+          edited_replan_line
+        else
+          edited_replan_line + child_lines.join
+        end
+        edited_current_date_section = edited_current_date_section.sub(source_event, edited_source_event)
 
         if skips_only && !debug && replan_line != edited_replan_line
           puts "> Moving line: #{replan_line.strip}"
@@ -132,17 +139,37 @@ class Replanner
 
   private
 
-  # Returns [[replan, bracket_i], ...].
+  # Returns [[replan, bracket_i, child_lines], ...]. Children are the contiguous lines whose
+  # indentation is deeper than the replan line's indentation.
   #
   def find_replan_lines(section)
     brackets = section.split(TIME_BRACKETS_SEPARATOR)
 
     brackets.each_with_index.flat_map do |bracket, i|
-      bracket
-        .lines
-        .select { |line| @replan_codec.replan_line?(line) }
-        .map { |line| [line, i] }
+      lines = bracket.lines
+      owning_replan_indentation = nil
+
+      lines.each_with_index.filter_map do |line, line_i|
+        indentation = line[/\A */].length
+        owning_replan_indentation = nil if owning_replan_indentation && indentation <= owning_replan_indentation
+        next unless @replan_codec.replan_line?(line)
+        next if owning_replan_indentation
+
+        owning_replan_indentation = indentation
+        child_lines = lines[(line_i + 1)..].take_while do |candidate|
+          !candidate.strip.empty? && candidate[/\A */].length > indentation
+        end
+        [line, i, child_lines]
+      end
     end
+  end
+
+  def append_children(planned_line, replan_line, child_lines)
+    return planned_line if child_lines.empty?
+
+    parent_indentation = replan_line[/\A */]
+    dedented_children = child_lines.map { |line| line.sub(/\A#{Regexp.escape(parent_indentation)}/, '') }
+    "#{planned_line.rstrip}\n#{dedented_children.join}"
   end
 
   def lstrip_line(line)
