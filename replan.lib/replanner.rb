@@ -116,13 +116,16 @@ class Replanner
 
         # No-op if the update didn't change the content
         #
-        source_event = replan_line + child_lines.join
-        edited_source_event = if replan_data.skip || replan_data.once
-          edited_replan_line
-        else
-          edited_replan_line + child_lines.join
+        # The children are not necessarily contiguous to the replan line (nested replan lines are
+        # excluded), so they're edited line by line.
+        #
+        edited_current_date_section = edited_current_date_section.sub(replan_line, edited_replan_line)
+
+        if replan_data.skip || replan_data.once
+          child_lines.each do |child_line|
+            edited_current_date_section = edited_current_date_section.sub(child_line, '')
+          end
         end
-        edited_current_date_section = edited_current_date_section.sub(source_event, edited_source_event)
 
         if skips_only && !debug && replan_line != edited_replan_line
           puts "> Moving line: #{replan_line.strip}"
@@ -140,40 +143,48 @@ class Replanner
   private
 
   # Returns [[replan, bracket_i, child_lines], ...]. Children are the contiguous lines whose
-  # indentation is deeper than the replan line's indentation.
+  # indentation is deeper than the replan line's indentation; nested replan lines are excluded,
+  # since they're replanned independently (see #own_children).
   #
   def find_replan_lines(section)
     brackets = section.split(TIME_BRACKETS_SEPARATOR)
 
     brackets.each_with_index.flat_map do |bracket, i|
       lines = bracket.lines
-      owning_replan_indentation = nil
-      owning_replan_line = nil
 
       lines.each_with_index.filter_map do |line, line_i|
-        indentation = line[/\A */].length
-
-        if owning_replan_indentation && indentation <= owning_replan_indentation
-          owning_replan_indentation = nil
-          owning_replan_line = nil
-        end
-
         next unless @replan_codec.replan_line?(line)
 
-        if owning_replan_indentation
-          raise <<~MSG
-            Nested replan line found!
-            Parent: #{owning_replan_line.rstrip.inspect}
-            Nested: #{line.rstrip.inspect}
-          MSG
-        end
-
-        owning_replan_indentation = indentation
-        owning_replan_line = line
-        child_lines = lines[(line_i + 1)..].take_while do |candidate|
+        indentation = line[/\A */].length
+        descendants = lines[(line_i + 1)..].take_while do |candidate|
           !candidate.strip.empty? && candidate[/\A */].length > indentation
         end
-        [line, i, child_lines]
+
+        [line, i, own_children(descendants)]
+      end
+    end
+  end
+
+  # Nested replan lines are events of their own, so they (along with their own descendants) don't
+  # move with the parent.
+  #
+  def own_children(descendants)
+    nested_replan_indentation = nil
+
+    descendants.select do |line|
+      indentation = line[/\A */].length
+
+      if nested_replan_indentation && indentation <= nested_replan_indentation
+        nested_replan_indentation = nil
+      end
+
+      if nested_replan_indentation
+        false
+      elsif @replan_codec.replan_line?(line)
+        nested_replan_indentation = indentation
+        false
+      else
+        true
       end
     end
   end

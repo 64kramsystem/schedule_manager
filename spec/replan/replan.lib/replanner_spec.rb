@@ -28,15 +28,39 @@ describe Replanner do
   include ReplannerSpecHelper
 
   context "Events" do
-    it "raises a descriptive error on a replan line nested under another replan line" do
+    it "replans a nested replan line independently, while the other children move with the parent" do
       test_content = <<~TXT
           MON 20/SEP/2021
       * gym chest (replan 3)
         + unload dishwasher
         + 21:01. C:/14 (replan 1)
+          - C:/14 child
+        + stretch
       TXT
 
-      expect { subject.execute(test_content + "\n") }.to raise_error(/Nested replan line found!.*"\* gym chest \(replan 3\)".*"  \+ 21:01\. C:\/14 \(replan 1\)"/m)
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      * gym chest
+        + unload dishwasher
+        + 21:01. C:/14
+          - C:/14 child
+        + stretch
+
+          TUE 21/SEP/2021
+      + C:/14 (replan 1)
+        - C:/14 child
+      -----
+      -----
+      -----
+      -----
+
+          THU 23/SEP/2021
+      * gym chest (replan 3)
+        + unload dishwasher
+        + stretch
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
     end
 
     it "moves all descendants with a once-off event" do
