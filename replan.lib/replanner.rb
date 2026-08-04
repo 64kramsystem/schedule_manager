@@ -162,10 +162,9 @@ class Replanner
 
         if owning_replan_indentation
           raise <<~MSG
-            Nested replan line found! A replan line can't be a descendant of another replan line, since it's ambiguous whether it's an independent event, or a child moved along with its parent.
+            Nested replan line found!
             Parent: #{owning_replan_line.rstrip.inspect}
             Nested: #{line.rstrip.inspect}
-            Fix: dedent the nested line to the parent's level (independent event), or remove its replan token (child of the parent).
           MSG
         end
 
