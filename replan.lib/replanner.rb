@@ -148,14 +148,29 @@ class Replanner
     brackets.each_with_index.flat_map do |bracket, i|
       lines = bracket.lines
       owning_replan_indentation = nil
+      owning_replan_line = nil
 
       lines.each_with_index.filter_map do |line, line_i|
         indentation = line[/\A */].length
-        owning_replan_indentation = nil if owning_replan_indentation && indentation <= owning_replan_indentation
+
+        if owning_replan_indentation && indentation <= owning_replan_indentation
+          owning_replan_indentation = nil
+          owning_replan_line = nil
+        end
+
         next unless @replan_codec.replan_line?(line)
-        next if owning_replan_indentation
+
+        if owning_replan_indentation
+          raise <<~MSG
+            Nested replan line found! A replan line can't be a descendant of another replan line, since it's ambiguous whether it's an independent event, or a child moved along with its parent.
+            Parent: #{owning_replan_line.rstrip.inspect}
+            Nested: #{line.rstrip.inspect}
+            Fix: dedent the nested line to the parent's level (independent event), or remove its replan token (child of the parent).
+          MSG
+        end
 
         owning_replan_indentation = indentation
+        owning_replan_line = line
         child_lines = lines[(line_i + 1)..].take_while do |candidate|
           !candidate.strip.empty? && candidate[/\A */].length > indentation
         end
