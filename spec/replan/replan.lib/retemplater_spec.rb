@@ -69,6 +69,102 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
+  it "Should add caret-suffixed template events to the top of their time bracket" do
+    source_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      - existing morning
+      -----
+      - existing noon
+      -----
+      -----
+      -----
+
+    TXT
+
+    caret_template = <<~TXT
+      -^ first morning
+      -^ second morning
+      - last morning
+      -----
+      -^ first noon
+        - nested detail
+      - last noon
+      -----
+      -----
+      -----
+    TXT
+
+    expected_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      - first morning
+      - second morning
+      - existing morning
+      - last morning
+      -----
+      - first noon
+        - nested detail
+      - existing noon
+      - last noon
+      -----
+      -----
+      -----
+
+    TXT
+
+    actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
+
+    expect(actual_content).to eql(expected_content)
+  end
+
+  ['S', '%'].each do |day_event_qualifier|
+    it "Should leave the #{day_event_qualifier} day event qualifier at the top" do
+      source_content = <<~TXT
+        #{current_day}
+
+            SUN 11/JUL/2021
+        #{day_event_qualifier} day event
+          - nested detail
+        - existing morning
+        -----
+        -----
+        -----
+        -----
+
+      TXT
+
+      caret_template = <<~TXT
+        -^ first morning
+        -----
+        -----
+        -----
+        -----
+      TXT
+
+      expected_content = <<~TXT
+        #{current_day}
+
+            SUN 11/JUL/2021
+        #{day_event_qualifier} day event
+          - nested detail
+        - first morning
+        - existing morning
+        -----
+        -----
+        -----
+        -----
+
+      TXT
+
+      actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
+
+      expect(actual_content).to eql(expected_content)
+    end
+  end
+
   it "Should fill the missing separators" do
     source_content = <<~TXT
       #{current_day}

@@ -43,11 +43,62 @@ class Retemplater
 
     new_date_section = next_date_time_brackets
       .zip(template_time_brackets)
-      .map { |next_date_bracket, template_bracket| next_date_bracket + template_bracket }
+      .map.with_index do |(next_date_bracket, template_bracket), bracket_i|
+        merge_time_bracket(next_date_bracket, template_bracket, top_bracket: bracket_i.zero?)
+      end
       .join(TIME_BRACKETS_SEPARATOR)
       .concat(TIME_BRACKETS_SEPARATOR)
       .concat("\n")
 
     content.sub(next_date_section, new_date_section)
+  end
+
+  private
+
+  def merge_time_bracket(next_date_bracket, template_bracket, top_bracket:)
+    top_template_lines, bottom_template_lines = split_template_lines(template_bracket)
+    next_date_lines = next_date_bracket.lines
+
+    insertion_i = top_bracket ? top_bracket_insertion_index(next_date_lines) : 0
+    next_date_lines.insert(insertion_i, *top_template_lines)
+
+    next_date_lines.join + bottom_template_lines.join
+  end
+
+  # A caret after an event symbol is template-only syntax. Indented descendants belong to the
+  # caret-suffixed event and must move to the top along with it.
+  #
+  def split_template_lines(template_bracket)
+    top_lines = []
+    bottom_lines = []
+    destination = bottom_lines
+
+    template_bracket.lines.each do |line|
+      if line.match?(/^\S\^(?=\s)/)
+        destination = top_lines
+        top_lines << line.sub(/^(\S)\^(?=\s)/, '\1')
+      elsif line.match?(/^\s/) && destination.equal?(top_lines)
+        top_lines << line
+      else
+        destination = bottom_lines
+        bottom_lines << line
+      end
+    end
+
+    [top_lines, bottom_lines]
+  end
+
+  # The first bracket starts with the date header. S and % events qualify the whole day, so a
+  # caret-suffixed event goes after any leading day qualifiers and their descendants.
+  #
+  def top_bracket_insertion_index(lines)
+    insertion_i = 1
+
+    while lines[insertion_i]&.match?(/^[S%] /)
+      insertion_i += 1
+      insertion_i += 1 while lines[insertion_i]&.match?(/^\s/)
+    end
+
+    insertion_i
   end
 end
