@@ -71,21 +71,27 @@ class Retemplater
   def split_template_lines(template_bracket)
     top_lines = []
     bottom_lines = []
-    destination = bottom_lines
+    top_entry_indentation = nil
 
     template_bracket.lines.each do |line|
-      if line.match?(/^\S\^(?=\s)/)
-        destination = top_lines
-        top_lines << line.sub(/^(\S)\^(?=\s)/, '\1')
-      elsif line.match?(/^\s/) && destination.equal?(top_lines)
-        top_lines << line
+      indentation = line[/\A */].size
+
+      if top_entry_indentation && indentation > top_entry_indentation
+        top_lines << remove_top_flag(line)
+      elsif line.match?(/^ *\S\^(?=\s)/)
+        top_entry_indentation = indentation
+        top_lines << remove_top_flag(line)
       else
-        destination = bottom_lines
+        top_entry_indentation = nil
         bottom_lines << line
       end
     end
 
     [top_lines, bottom_lines]
+  end
+
+  def remove_top_flag(line)
+    line.sub(/^( *\S)\^(?=\s)/, '\1')
   end
 
   # The first bracket starts with the date header. S and % events qualify the whole day, so a

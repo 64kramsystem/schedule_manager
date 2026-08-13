@@ -120,6 +120,49 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
+  it "Should add indented plus caret events and their descendants to the top" do
+    source_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      -----
+      - existing noon
+      -----
+      -----
+      -----
+
+    TXT
+
+    caret_template = <<~TXT
+      -----
+        +^ lunch, floss.s, teeth
+          + prep water
+        + regular indented entry
+      -----
+      -----
+      -----
+    TXT
+
+    expected_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      -----
+        + lunch, floss.s, teeth
+          + prep water
+      - existing noon
+        + regular indented entry
+      -----
+      -----
+      -----
+
+    TXT
+
+    actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
+
+    expect(actual_content).to eql(expected_content)
+  end
+
   ['S', '%'].each do |day_event_qualifier|
     it "Should leave the #{day_event_qualifier} day event qualifier at the top" do
       source_content = <<~TXT
