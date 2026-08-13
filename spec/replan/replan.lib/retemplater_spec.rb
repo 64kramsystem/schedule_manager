@@ -136,7 +136,7 @@ describe Retemplater do
     caret_template = <<~TXT
       -----
         +^ lunch, floss.s, teeth
-          + prep water
+          +^ prep water
         + regular indented entry
       -----
       -----

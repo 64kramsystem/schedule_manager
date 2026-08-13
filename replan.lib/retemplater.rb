@@ -65,8 +65,9 @@ class Retemplater
     next_date_lines.join + bottom_template_lines.join
   end
 
-  # A caret after an event symbol is template-only syntax. Indented descendants belong to the
-  # caret-suffixed event and must move to the top along with it.
+  # A caret after an event symbol is template-only syntax and may appear at any indentation.
+  # Indented descendants belong to the caret-suffixed event and must move to the top along with it;
+  # redundant carets on those descendants are stripped as well.
   #
   def split_template_lines(template_bracket)
     top_lines = []
