@@ -25,6 +25,8 @@ class ReplanCodec
   # - skip        : `s` (optional)
   # - update      : `u` (optional)
   # - update_full : `U` (optional)
+  # - carry       : `c` (optional; retain children on recurring replans)
+  # - top         : `^` (optional)
   # - time_block  : `M`, `N`, `A`, or `E` (optional, consumed after one replan)
   # - interval    : interval format
   # - next        : interval format, `%a`, `%b/%d` (optional)
@@ -96,14 +98,22 @@ class ReplanCodec
     # they're not worth.
     #
     replan_i = line.index(REPLAN_REGEX)
-    description, replan = line[0...replan_i], [replan_i..]
+    description = line[0...replan_i]
 
     replan_data = ReplanParser.new.parse($LAST_MATCH_INFO[1])
 
     if replan_data.once
       description
     else
-      keywords = " #{replan_data.fixed}#{replan_data.fixed_time}#{replan_data.update}#{replan_data.update_full}".rstrip
+      retained_options = [
+        replan_data.fixed,
+        replan_data.fixed_time,
+        replan_data.update,
+        replan_data.update_full,
+        replan_data.carry,
+        replan_data.top,
+      ].join
+      keywords = " #{retained_options}".rstrip
       interval = " #{replan_data.interval}".rstrip
 
       # Special case.

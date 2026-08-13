@@ -155,15 +155,17 @@ module ReplanHelper
     content.sub(preceding_date_section_regex, "\\1#{new_date_section}")
   end
 
-  # Line is added at the beginning (or, optionally, the end) of the given bracket of the given date
-  # section.
+  # Line is added at the end (or, optionally, the top) of the given bracket of the given date section.
   # If there aren't enough brackets, the missing ones are added.
   #
   # new_line: doesn't matter if it ends with a newline or note.
+  # top_offset: line offset from the first eligible top position.
   #
   # A nice generic implementation of this could receive {bracket_i => new_line}.
   #
-  def add_line_to_date_section(content, date, new_line, bracket_i, at_end: false, trailing_lines: 0)
+  def add_line_to_date_section(
+    content, date, new_line, bracket_i, top: false, top_offset: 0, trailing_lines: 0
+  )
     old_date_section = find_date_section(content, date)
 
     # find_date_section() correctly returns two new lines at the end, but in processing terms, it's
@@ -190,18 +192,39 @@ module ReplanHelper
 
     brackets.fill(brackets.size, TIME_BRACKETS_COUNT - brackets.size + 1) { "" }
 
-    stripped_new_line = "#{new_line.rstrip}\n"
-    brackets[bracket_i] = if at_end
-      bracket_lines = brackets[bracket_i].lines
-      bracket_lines.insert(bracket_lines.length - trailing_lines, stripped_new_line)
-      bracket_lines.join
+    bracket_lines = brackets[bracket_i].lines
+    insertion_i = if top
+      base_i = bracket_i.zero? ? top_insertion_index(bracket_lines) : 0
+      base_i + top_offset
     else
-      brackets[bracket_i].prepend(stripped_new_line)
+      bracket_lines.length - trailing_lines
     end
+    bracket_lines.insert(insertion_i, "#{new_line.rstrip}\n")
+    brackets[bracket_i] = bracket_lines.join
 
     new_date_section = date_header + brackets.join(TIME_BRACKETS_SEPARATOR)
 
     content.sub(old_date_section, new_date_section)
+  end
+
+  # S and % events qualify the whole day, so top events go after any leading day qualifiers and
+  # their descendants.
+  #
+  # start_i accounts for whether the caller's lines still include the date header.
+  #
+  def top_insertion_index(lines, start_i: 0)
+    insertion_i = start_i
+
+    while lines[insertion_i] && day_qualifier_line?(lines[insertion_i])
+      insertion_i += 1
+      insertion_i += 1 while lines[insertion_i]&.match?(/^\s/)
+    end
+
+    insertion_i
+  end
+
+  def day_qualifier_line?(line)
+    line.match?(/\A[S%] /)
   end
 
   ##################################################################################################

@@ -32,16 +32,28 @@ class Replanner
   def execute(content, debug: false, skips_only: false)
     dates = find_all_dates(content)
 
+    # Validate the whole schedule before an update can prompt the user. Full updates are checked
+    # again below because their new text can introduce a skip/once flag.
+    #
+    dates.each do |date|
+      replan_lines = find_replan_lines(find_date_section(content, date))
+      verify_no_children_on_moved_events(replan_lines)
+    end
+
+    prepended_replan_line_counts = Hash.new(0)
+
     dates.each_with_index do |current_date, date_i|
-      appended_replan_counts = Hash.new(0)
+      appended_replan_line_counts = Hash.new(0)
+      current_prepended_replan_line_counts = Hash.new(0)
+      current_prepended_day_qualifier_line_counts = Hash.new(0)
       current_date_section = find_date_section(content, current_date)
 
       edited_current_date_section = current_date_section.dup
 
       replan_lines = find_replan_lines(current_date_section)
 
-      # Since the replan entries are pushed to the top of the destination date, process them in reverse,
-      # so that they will appear in the original order.
+      # Entries are processed in reverse. Repeated top insertions restore their original order; trailing
+      # line counts do the same for entries appended to a bracket.
       #
       replan_lines.reverse.each do |replan_line, bracket_i, child_lines|
         puts "> Processing replan line: #{replan_line.strip}" if debug
@@ -70,6 +82,7 @@ class Replanner
         elsif replan_data.update_full
           planned_line = full_update_line(planned_line)
           replan_data = decode_replan_data(planned_line)
+          verify_no_children(planned_line, replan_data, child_lines)
 
           # See simple update case.
           #
@@ -88,7 +101,9 @@ class Replanner
         planned_line = handle_time(planned_line, replan_data)
         planned_line = compose_planned_line(planned_line)
         planned_line = apply_interpolations(planned_line, current_date, planned_date, replan_data.skip)
-        planned_line = append_children(planned_line, replan_line, child_lines)
+        if replan_data.carry
+          planned_line = append_children(planned_line, replan_line, child_lines)
+        end
 
         insertion_date = find_preceding_or_existing_date(content, planned_date)
 
@@ -98,15 +113,34 @@ class Replanner
 
         destination_bracket_i = TIME_BLOCK_BRACKETS.fetch(replan_data.time_block, bracket_i)
         destination_key = [planned_date, destination_bracket_i]
+        day_qualifier = destination_bracket_i.zero? && day_qualifier_line?(planned_line)
+        # top_insertion_index has already advanced past qualifiers inserted earlier during this
+        # source date. Subtract their lines to keep a fixed insertion point while iterating in reverse.
+        #
+        top_offset = if day_qualifier
+          -current_prepended_day_qualifier_line_counts[destination_key]
+        else
+          prepended_replan_line_counts[destination_key]
+        end
         content = add_line_to_date_section(
           content,
           planned_date,
           planned_line,
           destination_bracket_i,
-          at_end: !replan_data.time_block.nil?,
-          trailing_lines: appended_replan_counts[destination_key],
+          top: !replan_data.top.nil?,
+          top_offset:,
+          trailing_lines: appended_replan_line_counts[destination_key],
         )
-        appended_replan_counts[destination_key] += 1 if replan_data.time_block
+
+        if replan_data.top
+          if day_qualifier
+            current_prepended_day_qualifier_line_counts[destination_key] += planned_line.lines.count
+          else
+            current_prepended_replan_line_counts[destination_key] += planned_line.lines.count
+          end
+        else
+          appended_replan_line_counts[destination_key] += planned_line.lines.count
+        end
 
         edited_replan_line = if replan_data.skip || replan_data.once
           ''
@@ -116,20 +150,15 @@ class Replanner
 
         # No-op if the update didn't change the content
         #
-        # The children are not necessarily contiguous to the replan line (nested replan lines are
-        # excluded), so they're edited line by line.
-        #
         edited_current_date_section = edited_current_date_section.sub(replan_line, edited_replan_line)
-
-        if replan_data.skip || replan_data.once
-          child_lines.each do |child_line|
-            edited_current_date_section = edited_current_date_section.sub(child_line, '')
-          end
-        end
 
         if skips_only && !debug && replan_line != edited_replan_line
           puts "> Moving line: #{replan_line.strip}"
         end
+      end
+
+      current_prepended_replan_line_counts.each do |destination_key, count|
+        prepended_replan_line_counts[destination_key] += count
       end
 
       # No-op if no changes have been performed (see conditional before change block).
@@ -142,9 +171,8 @@ class Replanner
 
   private
 
-  # Returns [[replan, bracket_i, child_lines], ...]. Children are the contiguous lines whose
-  # indentation is deeper than the replan line's indentation; nested replan lines are excluded,
-  # since they're replanned independently (see #own_children).
+  # Returns [[replan, bracket_i, child_lines], ...]. Child lines exclude nested replans, since they're
+  # replanned independently (see #own_children).
   #
   def find_replan_lines(section)
     brackets = section.split(TIME_BRACKETS_SEPARATOR)
@@ -163,6 +191,20 @@ class Replanner
         [line, i, own_children(descendants)]
       end
     end
+  end
+
+  def verify_no_children_on_moved_events(replan_lines)
+    replan_lines.each do |replan_line, _, child_lines|
+      replan_data = @replan_codec.extract_replan_tokens(replan_line, allow_placeholder: true)
+      verify_no_children(replan_line, replan_data, child_lines)
+    end
+  end
+
+  def verify_no_children(replan_line, replan_data, child_lines)
+    # child_lines excludes nested replans, which are scheduled independently.
+    return unless child_lines.any? && (replan_data.skip || replan_data.once)
+
+    raise "Skip/once replan entry has children: #{replan_line.rstrip.inspect}"
   end
 
   # Nested replan lines are events of their own, so they (along with their own descendants) don't

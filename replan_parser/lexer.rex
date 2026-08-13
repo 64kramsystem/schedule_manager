@@ -14,6 +14,8 @@ macro
   U_LOW       u
   U_UP        U
   ONCE        o
+  CARRY       c
+  TOP         \^
   TIME_BLOCK  [MNAE]
   TIME        \d{1,2}:\d\d
   INTERVAL    \d+(\.\d+)?[dwmy]?
@@ -32,6 +34,8 @@ rule
   {U_LOW}       { [:U_LOW, text] }
   {U_UP}        { [:U_UP, text] }
   {ONCE}        { [:ONCE, text] }
+  {CARRY}       { [:CARRY, text] }
+  {TOP}         { [:TOP, text] }
   {TIME_BLOCK}  { [:TIME_BLOCK, text] }
   {TIME}        { [:TIME, text] }
   {INTERVAL}    { [:INTERVAL, text] }

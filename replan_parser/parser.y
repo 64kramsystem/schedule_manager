@@ -5,12 +5,18 @@ rule
     ;
 
   definition
-    : option_once time_block_optional WHITESPACE next
+    : once_options WHITESPACE next
     | options_optional period_and_next
     ;
 
-  time_block_optional
-    : | TIME_BLOCK                 { assign_time_block(val.fetch(0)) }
+  once_options
+    : option_once
+    | once_options once_option
+    ;
+
+  once_option
+    : TOP                          { checked_assign(:v_top, val.fetch(0)) }
+    | TIME_BLOCK                   { assign_time_block(val.fetch(0)) }
     ;
 
   options_optional
@@ -28,6 +34,8 @@ rule
     | S                            { checked_assign(:v_s, val.fetch(0)) }
     | U_LOW                        { checked_assign(:v_ul, val.fetch(0)) }
     | U_UP                         { checked_assign(:v_uu, val.fetch(0)) }
+    | CARRY                        { checked_assign(:v_carry, val.fetch(0)) }
+    | TOP                          { checked_assign(:v_top, val.fetch(0)) }
     | TIME_BLOCK                   { assign_time_block(val.fetch(0)) }
     ;
 
@@ -58,7 +66,8 @@ end
   require_relative 'replan_lexer'
 
 ---- inner
-  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_time_block, :v_interval, :v_next_prefix, :v_next
+  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_carry, :v_top,
+    :v_time_block, :v_interval, :v_next_prefix, :v_next
 
   def parse(input)
     scan_str(input)
@@ -70,6 +79,8 @@ end
       update:      self.v_ul,
       update_full: self.v_uu,
       once:        self.v_o,
+      carry:       self.v_carry,
+      top:         self.v_top,
       time_block:  self.v_time_block,
       interval:    self.v_interval,
       next_prefix: self.v_next_prefix,

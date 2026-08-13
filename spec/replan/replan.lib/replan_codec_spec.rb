@@ -5,7 +5,7 @@ require_relative '../../../replan.lib/replan_codec.rb'
 describe ReplanCodec do
   context "token extraction" do
     it 'for string with all the functionalities (except once)' do
-      tokens = subject.extract_replan_tokens('(replan f13:33suU 2w in 3m)')
+      tokens = subject.extract_replan_tokens('(replan f13:33suUc^ 2w in 3m)')
 
       expect(tokens).to eql(OpenStruct.new(
         fixed: 'f',
@@ -14,6 +14,8 @@ describe ReplanCodec do
         update: 'u',
         update_full: 'U',
         once: nil,
+        carry: 'c',
+        top: '^',
         time_block: nil,
         interval: '2w',
         next_prefix: 'in',
@@ -22,7 +24,7 @@ describe ReplanCodec do
     end
 
     it 'for string with once flag' do
-      tokens = subject.extract_replan_tokens('(replan o in 3m)')
+      tokens = subject.extract_replan_tokens('(replan o^ in 3m)')
 
       expect(tokens).to eql(OpenStruct.new(
         fixed: nil,
@@ -31,6 +33,8 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: 'o',
+        carry: nil,
+        top: '^',
         time_block: nil,
         interval: nil,
         next_prefix: 'in',
@@ -48,6 +52,8 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: nil,
+        carry: nil,
+        top: nil,
         time_block: nil,
         interval: 'wed',
         next_prefix: nil,
@@ -65,6 +71,8 @@ describe ReplanCodec do
         update: nil,
         update_full: nil,
         once: nil,
+        carry: nil,
+        top: nil,
         time_block: nil,
         interval: '1',
         next_prefix: nil,
@@ -86,6 +94,14 @@ describe ReplanCodec do
           subject.extract_replan_tokens('(replan MA 1)')
         }.to raise_error(RuntimeError, /time-block flag is already assigned/)
       }.to output(%Q{Error on line "(replan MA 1)"\n}).to_stderr
+    end
+
+    it 'rejects the carry flag on a once-off replan' do
+      expect {
+        expect {
+          subject.extract_replan_tokens('(replan oc thu)')
+        }.to raise_error(Racc::ParseError, /parse error on value "c"/)
+      }.to output(%Q{Error on line "(replan oc thu)"\n}).to_stderr
     end
   end
 
@@ -152,6 +168,14 @@ describe ReplanCodec do
 
     it 'removes the time-block flag when rewriting a recurring replan' do
       expect(subject.rewrite_replan('myevent (replan A 5)')).to eql('myevent (replan 5)')
+    end
+
+    it 'retains carry and top flags when rewriting a recurring replan' do
+      expect(subject.rewrite_replan('myevent (replan sc^ 5)')).to eql('myevent (replan c^ 5)')
+    end
+
+    it 'retains top after consuming a time-block flag' do
+      expect(subject.rewrite_replan('myevent (replan A^ 5)')).to eql('myevent (replan ^ 5)')
     end
 
     it 'should update a replan description' do

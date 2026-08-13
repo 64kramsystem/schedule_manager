@@ -28,12 +28,12 @@ describe Replanner do
   include ReplannerSpecHelper
 
   context "Events" do
-    it "replans a nested replan line independently, while the other children move with the parent" do
+    it "replans a nested replan line independently, while c carries the other children" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      * gym chest (replan 3)
+      * gym chest (replan c 3)
         + unload dishwasher
-        + 21:01. C:/14 (replan 1)
+        + 21:01. C:/14 (replan c 1)
           - C:/14 child
         + stretch
       TXT
@@ -47,7 +47,7 @@ describe Replanner do
         + stretch
 
           TUE 21/SEP/2021
-      + C:/14 (replan 1)
+      + C:/14 (replan c 1)
         - C:/14 child
       -----
       -----
@@ -55,7 +55,7 @@ describe Replanner do
       -----
 
           THU 23/SEP/2021
-      * gym chest (replan 3)
+      * gym chest (replan c 3)
         + unload dishwasher
         + stretch
       TXT
@@ -63,31 +63,115 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "moves all descendants with a once-off event" do
+    it "rejects children on a once-off event" do
       test_content = <<~TXT
           MON 20/SEP/2021
       + BOM (replan oA thu)
         + check current account
-        + check credit card
-          - improve bank extracts
-          - check credit
-        + shuffle invoices
-      - unrelated event
+
+      TXT
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Skip/once replan entry has children: "+ BOM (replan oA thu)"')
+    end
+
+    it "replans a nested replan independently of a skipped parent" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - skipped parent (replan s 7)
+        - nested child (replan 1)
+
       TXT
 
       expected_updated_content = <<~TXT
           MON 20/SEP/2021
-      - unrelated event
+        - nested child
 
-          THU 23/SEP/2021
+          TUE 21/SEP/2021
+      - nested child (replan 1)
       -----
       -----
-      + BOM
-        + check current account
-        + check credit card
-          - improve bank extracts
-          - check credit
-        + shuffle invoices
+      -----
+      -----
+
+          MON 27/SEP/2021
+      - skipped parent (replan 7)
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "rejects a plain child alongside an independent nested replan" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - skipped parent (replan s 7)
+        - nested child (replan 1)
+        - plain child
+
+      TXT
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Skip/once replan entry has children: "- skipped parent (replan s 7)"')
+    end
+
+    it "rejects children when a full update adds the skip flag" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - parent (replan U 7)
+        - child
+
+      TXT
+
+      expect_any_instance_of(InputHelper)
+        .to receive(:ask)
+        .with("Enter the new description:", prefill: "parent (replan U 7)")
+        .and_return("parent (replan s 7)")
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Skip/once replan entry has children: "- parent (replan s 7)"')
+    end
+
+    it "rejects invalid children before prompting for updates on earlier dates" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - editable (replan u 7)
+
+          TUE 21/SEP/2021
+      - invalid skipped parent (replan s 7)
+        - child
+
+      TXT
+
+      expect_any_instance_of(InputHelper).not_to receive(:ask)
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Skip/once replan entry has children: "- invalid skipped parent (replan s 7)"')
+    end
+
+    it "copies all descendants when advancing a recurring event with c" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      + recurring parent (replan c 7)
+        - child
+          - grandchild
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      + recurring parent
+        - child
+          - grandchild
+
+          MON 27/SEP/2021
+      + recurring parent (replan c 7)
+        - child
+          - grandchild
+      -----
+      -----
       -----
       -----
       TXT
@@ -95,7 +179,7 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "copies all descendants when advancing a recurring event" do
+    it "leaves descendants on the current occurrence when c is absent" do
       test_content = <<~TXT
           MON 20/SEP/2021
       + recurring parent (replan 7)
@@ -111,8 +195,6 @@ describe Replanner do
 
           MON 27/SEP/2021
       + recurring parent (replan 7)
-        - child
-          - grandchild
       -----
       -----
       -----
@@ -408,17 +490,17 @@ describe Replanner do
 
     expected_updated_content = <<~TXT
         MON 27/SEP/2021
-    - foo1 (replan 7)
     - bar1
+    - foo1 (replan 7)
     -----
+    - bar2
     - foo1 (replan 7)
     - foo2 (replan 7)
-    - bar2
     -----
     - foo3 (replan 7)
     -----
-    - foo4 (replan 7)
     - bar4
+    - foo4 (replan 7)
     -----
     TXT
 
@@ -442,8 +524,8 @@ describe Replanner do
 
     expected_updated_content = <<~TXT
         MON 27/SEP/2021
-    - foo1 (replan 7)
     - foo
+    - foo1 (replan 7)
     -----
     - foo1 (replan 7)
     -----
@@ -521,11 +603,13 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "preserves the order of multiple replans placed at the end of one block" do
+    it "preserves multiline event order when placing replans at the end of one block" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      - first (replan oA thu)
-      - second (replan oA thu)
+      - first (replan cA thu)
+        - first child
+      - second (replan cA thu)
+        - second child
 
           THU 23/SEP/2021
       -----
@@ -541,8 +625,10 @@ describe Replanner do
       -----
       -----
       - existing afternoon
-      - first
-      - second
+      - first (replan c thu)
+        - first child
+      - second (replan c thu)
+        - second child
       -----
       -----
       TXT
@@ -574,6 +660,254 @@ describe Replanner do
       - existing afternoon
       - from monday
       - from tuesday
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+  end
+
+  context "Top flag" do
+    it "places caret replans before existing entries and retains the flag" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - first (replan ^ 7)
+      - second (replan ^ 7)
+
+          MON 27/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 27/SEP/2021
+      - first (replan ^ 7)
+      - second (replan ^ 7)
+      - existing
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    ['S', '%'].each do |day_event_qualifier|
+      it "places caret replans after #{day_event_qualifier} day qualifiers" do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - top (replan ^ 7)
+
+            MON 27/SEP/2021
+        #{day_event_qualifier} day event
+          - nested detail
+        - existing
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 27/SEP/2021
+        #{day_event_qualifier} day event
+          - nested detail
+        - top (replan ^ 7)
+        - existing
+        -----
+        -----
+        -----
+        -----
+        TXT
+
+        assert_replan(test_content, expected_updated_content)
+      end
+    end
+
+    it "preserves the order of multiple caret day qualifiers from one source date" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      S first qualifier (replan o^ thu)
+      % second qualifier (replan o^ thu)
+
+          THU 23/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      S first qualifier
+      % second qualifier
+      - existing
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "preserves multiline caret day qualifier order from one source date" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      S first qualifier (replan c^ 3)
+        - first child
+      % second qualifier (replan c^ 3)
+        - second child
+
+          THU 23/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      S first qualifier (replan c^ 3)
+        - first child
+      % second qualifier (replan c^ 3)
+        - second child
+      - existing
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "retains caret when replanning fixed skipped entries" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - fixed skip (replan f10:00s^ 7)
+
+          MON 27/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 27/SEP/2021
+      - 10:00. fixed skip (replan f10:00^ 7)
+      - existing
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "combines with a one-shot time-block flag" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - recurring (replan A^ 7)
+
+          MON 27/SEP/2021
+      -----
+      -----
+      - existing afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 27/SEP/2021
+      -----
+      -----
+      - recurring (replan ^ 7)
+      - existing afternoon
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "preserves source-date order for caret replans targeting one block" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - from monday (replan o^ thu)
+
+          TUE 21/SEP/2021
+      - from tuesday (replan o^ thu)
+
+          THU 23/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      - from monday
+      - from tuesday
+      - existing
+      -----
+      -----
+      -----
+      -----
+      TXT
+
+      assert_replan(test_content, expected_updated_content)
+    end
+
+    it "orders multiline caret entries and replanned day qualifiers across source dates" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - from monday (replan c^ thu)
+        - monday child
+
+          TUE 21/SEP/2021
+      S tuesday qualifier (replan o^ thu)
+
+          WED 22/SEP/2021
+      - from wednesday (replan o^ thu)
+
+          THU 23/SEP/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          THU 23/SEP/2021
+      S tuesday qualifier
+      - from monday (replan c^ thu)
+        - monday child
+      - from wednesday
+      - existing
+      -----
+      -----
       -----
       -----
       TXT

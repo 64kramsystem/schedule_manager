@@ -12,8 +12,9 @@ require 'racc/parser.rb'
 
 class ReplanParser < Racc::Parser
 
-module_eval(<<'...end parser.y/module_eval...', 'parser.y', 61)
-  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_time_block, :v_interval, :v_next_prefix, :v_next
+module_eval(<<'...end parser.y/module_eval...', 'parser.y', 69)
+  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_carry, :v_top,
+    :v_time_block, :v_interval, :v_next_prefix, :v_next
 
   def parse(input)
     scan_str(input)
@@ -25,6 +26,8 @@ module_eval(<<'...end parser.y/module_eval...', 'parser.y', 61)
       update:      self.v_ul,
       update_full: self.v_uu,
       once:        self.v_o,
+      carry:       self.v_carry,
+      top:         self.v_top,
       time_block:  self.v_time_block,
       interval:    self.v_interval,
       next_prefix: self.v_next_prefix,
@@ -51,97 +54,109 @@ module_eval(<<'...end parser.y/module_eval...', 'parser.y', 61)
 ##### State transition tables begin ###
 
 racc_action_table = [
-    15,    11,     2,    12,    13,    14,    16,    25,    15,    11,
-    33,    12,    13,    14,    32,    34,    33,     3,    33,     4,
-    32,    34,    32,    34,    20,    21,    22,    23,    24,     5,
-    18,    27,    28,    29,    30,    37,    38 ]
+    17,    18,    12,     2,    13,    14,    15,    16,    19,    30,
+    17,    18,    12,     3,    13,    14,    15,    16,    35,     4,
+    35,     5,    34,    36,    34,    36,    35,    20,    22,    23,
+    34,    36,    25,    26,    27,    28,    29,    32,    37,    38,
+    39,    42 ]
 
 racc_action_check = [
-     4,     4,     0,     4,     4,     4,     4,     9,     9,     9,
-    28,     9,     9,     9,    28,    28,    29,     1,    30,     2,
-    29,    29,    30,    30,     8,     8,     8,     8,     8,     3,
-     7,    11,    17,    20,    21,    32,    37 ]
+     4,     4,     4,     0,     4,     4,     4,     4,     4,    10,
+    10,    10,    10,     1,    10,    10,    10,    10,    20,     2,
+    37,     3,    20,    20,    37,    37,    38,     7,     7,     7,
+    38,    38,     8,     8,     8,     8,     8,    12,    25,    26,
+    34,    39 ]
 
 racc_action_pointer = [
-     0,    17,    16,    29,    -4,   nil,   nil,    26,    13,     4,
-   nil,    25,   nil,   nil,   nil,   nil,   nil,    29,   nil,   nil,
-    30,    31,   nil,   nil,   nil,   nil,   nil,   nil,    -2,     4,
-     6,   nil,    32,   nil,   nil,   nil,   nil,    25,   nil ]
+     1,    13,    16,    21,    -4,   nil,   nil,    24,    19,   nil,
+     6,   nil,    30,   nil,   nil,   nil,   nil,   nil,   nil,   nil,
+     4,   nil,   nil,   nil,   nil,    35,    36,   nil,   nil,   nil,
+   nil,   nil,   nil,   nil,    37,   nil,   nil,     6,    12,    28,
+   nil,   nil,   nil ]
 
 racc_action_default = [
-   -27,   -27,   -27,   -27,    -6,    39,    -1,    -4,   -27,   -27,
-    -9,   -10,   -12,   -13,   -14,   -15,   -16,   -27,    -5,    -3,
-   -17,   -19,   -21,   -22,   -23,    -7,    -8,   -11,   -27,   -27,
-   -27,    -2,   -27,   -25,   -26,   -18,   -20,   -27,   -24 ]
+   -31,   -31,   -31,   -31,    -8,    43,    -1,   -31,   -31,    -4,
+   -31,   -11,   -12,   -14,   -15,   -16,   -17,   -18,   -19,   -20,
+   -31,    -5,    -6,    -7,    -3,   -21,   -23,   -25,   -26,   -27,
+    -9,   -10,   -13,    -2,   -31,   -29,   -30,   -31,   -31,   -31,
+   -22,   -24,   -28 ]
 
 racc_goto_table = [
-    10,    31,    35,    36,     1,    26,     6,     7,    17,     8,
-    19,     9 ]
+    33,    11,     1,     6,     7,     8,    24,    31,     9,    21,
+    10,   nil,   nil,   nil,   nil,   nil,   nil,    40,    41 ]
 
 racc_goto_check = [
-     9,     5,     5,     5,     1,     9,     2,     3,     4,     6,
-     7,     8 ]
+     4,    10,     1,     2,     3,     5,     6,    10,     7,     8,
+     9,   nil,   nil,   nil,   nil,   nil,   nil,     4,     4 ]
 
 racc_goto_pointer = [
-   nil,     4,     2,     3,     1,   -27,     5,     2,     7,    -4 ]
+   nil,     2,    -1,     0,   -20,     1,    -2,     4,     2,     6,
+    -3 ]
 
 racc_goto_default = [
-   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil ]
+   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,   nil,
+   nil ]
 
 racc_reduce_table = [
   0, 0, :racc_error,
-  3, 19, :_reduce_none,
-  4, 20, :_reduce_none,
-  2, 20, :_reduce_none,
-  0, 22, :_reduce_none,
-  1, 22, :_reduce_5,
-  0, 24, :_reduce_none,
-  2, 24, :_reduce_none,
-  2, 26, :_reduce_none,
-  1, 26, :_reduce_none,
-  1, 27, :_reduce_10,
-  2, 27, :_reduce_11,
-  1, 27, :_reduce_12,
-  1, 27, :_reduce_13,
-  1, 27, :_reduce_14,
-  1, 27, :_reduce_15,
-  1, 21, :_reduce_16,
-  1, 25, :_reduce_17,
-  3, 25, :_reduce_18,
-  1, 25, :_reduce_19,
-  3, 25, :_reduce_20,
-  1, 25, :_reduce_21,
-  1, 25, :_reduce_22,
-  1, 25, :_reduce_23,
-  3, 23, :_reduce_24,
-  1, 23, :_reduce_25,
-  1, 23, :_reduce_26 ]
+  3, 21, :_reduce_none,
+  3, 22, :_reduce_none,
+  2, 22, :_reduce_none,
+  1, 23, :_reduce_none,
+  2, 23, :_reduce_none,
+  1, 28, :_reduce_6,
+  1, 28, :_reduce_7,
+  0, 25, :_reduce_none,
+  2, 25, :_reduce_none,
+  2, 29, :_reduce_none,
+  1, 29, :_reduce_none,
+  1, 30, :_reduce_12,
+  2, 30, :_reduce_13,
+  1, 30, :_reduce_14,
+  1, 30, :_reduce_15,
+  1, 30, :_reduce_16,
+  1, 30, :_reduce_17,
+  1, 30, :_reduce_18,
+  1, 30, :_reduce_19,
+  1, 27, :_reduce_20,
+  1, 26, :_reduce_21,
+  3, 26, :_reduce_22,
+  1, 26, :_reduce_23,
+  3, 26, :_reduce_24,
+  1, 26, :_reduce_25,
+  1, 26, :_reduce_26,
+  1, 26, :_reduce_27,
+  3, 24, :_reduce_28,
+  1, 24, :_reduce_29,
+  1, 24, :_reduce_30 ]
 
-racc_reduce_n = 27
+racc_reduce_n = 31
 
-racc_shift_n = 39
+racc_shift_n = 43
 
 racc_token_table = {
   false => 0,
   :error => 1,
   :REPLAN => 2,
   :WHITESPACE => 3,
-  :TIME_BLOCK => 4,
-  :F => 5,
-  :TIME => 6,
-  :S => 7,
-  :U_LOW => 8,
-  :U_UP => 9,
-  :ONCE => 10,
-  :INTERVAL => 11,
-  :DAY => 12,
-  :LAST_DAY => 13,
-  :LAST_DAYNUM => 14,
-  :FIRST_DAY => 15,
-  :IN => 16,
-  :MONTH_DAY => 17 }
+  :TOP => 4,
+  :TIME_BLOCK => 5,
+  :F => 6,
+  :TIME => 7,
+  :S => 8,
+  :U_LOW => 9,
+  :U_UP => 10,
+  :CARRY => 11,
+  :ONCE => 12,
+  :INTERVAL => 13,
+  :DAY => 14,
+  :LAST_DAY => 15,
+  :LAST_DAYNUM => 16,
+  :FIRST_DAY => 17,
+  :IN => 18,
+  :MONTH_DAY => 19 }
 
-racc_nt_base = 18
+racc_nt_base = 20
 
 racc_use_result_var = true
 
@@ -167,12 +182,14 @@ Racc_token_to_s_table = [
   "error",
   "REPLAN",
   "WHITESPACE",
+  "TOP",
   "TIME_BLOCK",
   "F",
   "TIME",
   "S",
   "U_LOW",
   "U_UP",
+  "CARRY",
   "ONCE",
   "INTERVAL",
   "DAY",
@@ -184,11 +201,12 @@ Racc_token_to_s_table = [
   "$start",
   "expression",
   "definition",
-  "option_once",
-  "time_block_optional",
+  "once_options",
   "next",
   "options_optional",
   "period_and_next",
+  "option_once",
+  "once_option",
   "options",
   "option" ]
 Ractor.make_shareable(Racc_token_to_s_table) if defined?(Ractor)
@@ -207,135 +225,158 @@ Racc_debug_parser = false
 
 # reduce 4 omitted
 
-module_eval(<<'.,.,', 'parser.y', 12)
-  def _reduce_5(val, _values, result)
-     assign_time_block(val.fetch(0))
+# reduce 5 omitted
+
+module_eval(<<'.,.,', 'parser.y', 17)
+  def _reduce_6(val, _values, result)
+     checked_assign(:v_top, val.fetch(0))
     result
   end
 .,.,
 
-# reduce 6 omitted
-
-# reduce 7 omitted
+module_eval(<<'.,.,', 'parser.y', 18)
+  def _reduce_7(val, _values, result)
+     assign_time_block(val.fetch(0))
+    result
+  end
+.,.,
 
 # reduce 8 omitted
 
 # reduce 9 omitted
 
-module_eval(<<'.,.,', 'parser.y', 25)
-  def _reduce_10(val, _values, result)
+# reduce 10 omitted
+
+# reduce 11 omitted
+
+module_eval(<<'.,.,', 'parser.y', 31)
+  def _reduce_12(val, _values, result)
      checked_assign(:v_f, val.fetch(0))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 26)
-  def _reduce_11(val, _values, result)
+module_eval(<<'.,.,', 'parser.y', 32)
+  def _reduce_13(val, _values, result)
      checked_assign(:v_f, val.fetch(0)); checked_assign(:v_f_time, val.fetch(1))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 27)
-  def _reduce_12(val, _values, result)
+module_eval(<<'.,.,', 'parser.y', 33)
+  def _reduce_14(val, _values, result)
      checked_assign(:v_s, val.fetch(0))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 28)
-  def _reduce_13(val, _values, result)
+module_eval(<<'.,.,', 'parser.y', 34)
+  def _reduce_15(val, _values, result)
      checked_assign(:v_ul, val.fetch(0))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 29)
-  def _reduce_14(val, _values, result)
+module_eval(<<'.,.,', 'parser.y', 35)
+  def _reduce_16(val, _values, result)
      checked_assign(:v_uu, val.fetch(0))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 30)
-  def _reduce_15(val, _values, result)
-     assign_time_block(val.fetch(0))
+module_eval(<<'.,.,', 'parser.y', 36)
+  def _reduce_17(val, _values, result)
+     checked_assign(:v_carry, val.fetch(0))
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 34)
-  def _reduce_16(val, _values, result)
-     checked_assign(:v_o, val.fetch(0))
+module_eval(<<'.,.,', 'parser.y', 37)
+  def _reduce_18(val, _values, result)
+     checked_assign(:v_top, val.fetch(0))
     result
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.y', 38)
-  def _reduce_17(val, _values, result)
-     self.v_interval = val.fetch(0)
-    result
-  end
-.,.,
-
-module_eval(<<'.,.,', 'parser.y', 39)
-  def _reduce_18(val, _values, result)
-     self.v_interval = val.fetch(0)
-    result
-  end
-.,.,
-
-module_eval(<<'.,.,', 'parser.y', 40)
   def _reduce_19(val, _values, result)
-     self.v_interval = val.fetch(0)
-    result
-  end
-.,.,
-
-module_eval(<<'.,.,', 'parser.y', 41)
-  def _reduce_20(val, _values, result)
-     self.v_interval = val.fetch(0)
+     assign_time_block(val.fetch(0))
     result
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.y', 42)
+  def _reduce_20(val, _values, result)
+     checked_assign(:v_o, val.fetch(0))
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 46)
   def _reduce_21(val, _values, result)
      self.v_interval = val.fetch(0)
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 43)
+module_eval(<<'.,.,', 'parser.y', 47)
   def _reduce_22(val, _values, result)
      self.v_interval = val.fetch(0)
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 44)
+module_eval(<<'.,.,', 'parser.y', 48)
   def _reduce_23(val, _values, result)
      self.v_interval = val.fetch(0)
     result
   end
 .,.,
 
-module_eval(<<'.,.,', 'parser.y', 48)
-  def _reduce_24(val, _values, result)
-     self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2)
-    result
-  end
-.,.,
-
 module_eval(<<'.,.,', 'parser.y', 49)
-  def _reduce_25(val, _values, result)
-     self.v_next = val.fetch(0)
+  def _reduce_24(val, _values, result)
+     self.v_interval = val.fetch(0)
     result
   end
 .,.,
 
 module_eval(<<'.,.,', 'parser.y', 50)
+  def _reduce_25(val, _values, result)
+     self.v_interval = val.fetch(0)
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 51)
   def _reduce_26(val, _values, result)
+     self.v_interval = val.fetch(0)
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 52)
+  def _reduce_27(val, _values, result)
+     self.v_interval = val.fetch(0)
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 56)
+  def _reduce_28(val, _values, result)
+     self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2)
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 57)
+  def _reduce_29(val, _values, result)
+     self.v_next = val.fetch(0)
+    result
+  end
+.,.,
+
+module_eval(<<'.,.,', 'parser.y', 58)
+  def _reduce_30(val, _values, result)
      self.v_next = val.fetch(0)
     result
   end

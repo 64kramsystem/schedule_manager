@@ -59,7 +59,7 @@ class Retemplater
     top_template_lines, bottom_template_lines = split_template_lines(template_bracket)
     next_date_lines = next_date_bracket.lines
 
-    insertion_i = top_bracket ? top_bracket_insertion_index(next_date_lines) : 0
+    insertion_i = top_bracket ? top_insertion_index(next_date_lines, start_i: 1) : 0
     next_date_lines.insert(insertion_i, *top_template_lines)
 
     next_date_lines.join + bottom_template_lines.join
@@ -93,19 +93,5 @@ class Retemplater
 
   def remove_top_flag(line)
     line.sub(/^( *\S)\^(?=\s)/, '\1')
-  end
-
-  # The first bracket starts with the date header. S and % events qualify the whole day, so a
-  # caret-suffixed event goes after any leading day qualifiers and their descendants.
-  #
-  def top_bracket_insertion_index(lines)
-    insertion_i = 1
-
-    while lines[insertion_i]&.match?(/^[S%] /)
-      insertion_i += 1
-      insertion_i += 1 while lines[insertion_i]&.match?(/^\s/)
-    end
-
-    insertion_i
   end
 end
