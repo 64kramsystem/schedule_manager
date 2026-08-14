@@ -19,6 +19,9 @@ module ReplanHelper
   DATE_HEADER_REGEX = %r(^(    (\S{3}) (\d{2})/(\w{3})/?(\d{4})?))
   private_constant :DATE_HEADER_REGEX
 
+  TEMPLATE_TOP_FLAG_PATTERN = /^( *\S)\^(?=\s)/
+  private_constant :TEMPLATE_TOP_FLAG_PATTERN
+
   ##################################################################################################
   # FINDING
   ##################################################################################################
@@ -225,6 +228,10 @@ module ReplanHelper
 
   def day_qualifier_line?(line)
     line.match?(/\A[S%] /)
+  end
+
+  def remove_template_top_flags(content)
+    content.gsub(TEMPLATE_TOP_FLAG_PATTERN, '\1')
   end
 
   ##################################################################################################

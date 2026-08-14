@@ -20,4 +20,24 @@ describe Cleaner do
 
     TEXT
   end
+
+  it 'removes template top flags without changing other carets' do
+    content = <<~TEXT
+      +^ top
+        -^ nested
+      S^ qualifier
+      +^no-space
+      - caret ^ in description
+
+    TEXT
+
+    expect(subject.execute(content)).to eq(<<~TEXT)
+      + top
+        - nested
+      S qualifier
+      +^no-space
+      - caret ^ in description
+
+    TEXT
+  end
 end

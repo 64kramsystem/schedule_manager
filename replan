@@ -68,6 +68,7 @@ class Replan
       content = archive_content + "\n" + content
     end
 
+    content = Cleaner.new.execute(content)
     Relister.new(event_symbols).execute(content, export:)
   end
 

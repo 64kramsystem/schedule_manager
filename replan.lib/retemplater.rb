@@ -78,10 +78,10 @@ class Retemplater
       indentation = line[/\A */].size
 
       if top_entry_indentation && indentation > top_entry_indentation
-        top_lines << remove_top_flag(line)
-      elsif line.match?(/^ *\S\^(?=\s)/)
+        top_lines << remove_template_top_flags(line)
+      elsif line.match?(TEMPLATE_TOP_FLAG_PATTERN)
         top_entry_indentation = indentation
-        top_lines << remove_top_flag(line)
+        top_lines << remove_template_top_flags(line)
       else
         top_entry_indentation = nil
         bottom_lines << line
@@ -89,9 +89,5 @@ class Retemplater
     end
 
     [top_lines, bottom_lines]
-  end
-
-  def remove_top_flag(line)
-    line.sub(/^( *\S)\^(?=\s)/, '\1')
   end
 end
