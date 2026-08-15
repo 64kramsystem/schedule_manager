@@ -540,7 +540,7 @@ describe Replanner do
     it "places M, N, A, and E replans at the end of their requested blocks" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      - morning (replan oM thu)
+      - 12:30. morning (replan oM thu)
       - noon (replan oN thu)
       - afternoon (replan oA thu)
       - evening (replan oE thu)
@@ -560,7 +560,7 @@ describe Replanner do
       expected_updated_content = <<~TXT
           THU 23/SEP/2021
       - existing morning
-      - morning
+      - 12:30. morning
       -----
       - existing noon
       - noon
@@ -1077,7 +1077,7 @@ describe Replanner do
           MON 20/SEP/2021
 
           WED 22/SEP/2021
-      - foo
+      - 12:30. foo
       TXT
 
       assert_replan(test_content, expected_next_date_section)
@@ -1093,7 +1093,7 @@ describe Replanner do
           MON 20/SEP/2021
 
           WED 22/SEP/2021
-      - foo
+      - 12:30. foo
       TXT
 
       assert_replan(test_content, expected_next_date_section)
@@ -1109,7 +1109,7 @@ describe Replanner do
           MON 20/SEP/2021
 
           WED 29/SEP/2021
-      - foo
+      - 12:30. foo
       TXT
 
       assert_replan(test_content, expected_next_date_section)
@@ -1126,7 +1126,7 @@ describe Replanner do
           MON 20/SEP/2021
 
           MON 27/SEP/2021
-      - foo
+      - 12:30. foo
       TXT
 
       assert_replan(test_content, expected_next_date_section)

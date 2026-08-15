@@ -367,7 +367,9 @@ class Replanner
   end
 
   def handle_time(line, replan_data)
-    if replan_data.fixed
+    if replan_data.once
+      line
+    elsif replan_data.fixed
       if replan_data.fixed_time
         # Replace the time with the specified one.
         #
