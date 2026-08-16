@@ -114,6 +114,22 @@ describe Relister do
     }.to output(expected_output).to_stdout
   end
 
+  it "Should export the final section when its trailing blank line was trimmed" do
+    export_date = reference_date
+    test_content = <<~TXT.chomp + "\n"
+          #{header(export_date)}
+      * final event
+    TXT
+
+    expected_output = JSON.pretty_generate([
+      {"date": json(export_date), "title": "final event", "type": "*"},
+    ])
+
+    expect {
+      subject.execute(test_content, export: export_date)
+    }.to output(expected_output).to_stdout
+  end
+
   it "Should allow non-replan `*` lines" do
     test_content = <<~TXT
           #{header(reference_date + 1)}

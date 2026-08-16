@@ -97,6 +97,7 @@ class Relister
   #   :export: Date to start the export from (inclusive)
   #
   def execute(content, export: nil)
+    content = ensure_trailing_blank_line(content)
     interval_start = export || INTERVAL_START_REGULAR[]
 
     formatter_class, interval_end = if export

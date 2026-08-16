@@ -9,6 +9,7 @@ require 'simple_scripting/argv'
 require 'simple_scripting/configuration'
 
 require_relative "#{File.basename(__FILE__)}.lib/replan_helper"
+require_relative "#{File.basename(__FILE__)}.lib/archive_reader"
 
 require_relative "#{File.basename(__FILE__)}.lib/relister"
 require_relative "#{File.basename(__FILE__)}.lib/refixer"
@@ -61,12 +62,8 @@ class Replan
   include ReplanHelper
 
   def list(schedule_filename, archive_filename, event_symbols, export: nil)
-    content = IO.read(schedule_filename)
-
-    if File.exist?(archive_filename)
-      archive_content = IO.read(archive_filename)
-      content = archive_content + "\n" + content
-    end
+    archive_contents = ArchiveReader.new(archive_filename).read(export_start: export)
+    content = (archive_contents + [IO.read(schedule_filename)]).join("\n")
 
     content = Cleaner.new.execute(content)
     Relister.new(event_symbols).execute(content, export:)
