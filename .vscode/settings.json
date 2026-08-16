@@ -1,0 +1,9 @@
+{
+  "search.exclude": {
+    "replan.lib/resnapper.rb": true,
+    "spec/replan/replan.lib/resnapper_spec.rb": true,
+  },
+  "files.exclude": {
+    ".ruby-lsp": true,
+  },
+}
