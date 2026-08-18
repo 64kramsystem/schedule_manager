@@ -64,6 +64,21 @@ describe Resnapper do
     expect(actual_content).to eql(source_content)
   end
 
+  it "does not insert children for skip or once references without a current occurrence" do
+    source_content = <<~TXT
+        MON 20/SEP/2021
+    - 09:50. work
+      + {{@section A}} (replan s tue)
+      % 12:00. olga (replan f10:00 tue in 2w)
+        - olga child
+      + {{@section B}} (replan o wed)
+    TXT
+
+    actual_content = described_class.new(StringIO.new(snap_content)).execute(source_content)
+
+    expect(actual_content).to eql(source_content)
+  end
+
   it "Should handle multiple placeholders across multiple dates" do
     source_content = <<~TXT
           MON 20/SEP/2021

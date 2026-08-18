@@ -1,5 +1,7 @@
 require 'English'
 
+require_relative 'replan_codec'
+
 # Copy children from snap-file sections into matching schedule placeholders.
 #
 class Resnapper
@@ -11,6 +13,7 @@ class Resnapper
   def initialize(snap)
     @snap = snap.respond_to?(:read) ? snap.read : IO.read(snap)
     @sections = parse_sections
+    @replan_codec = ReplanCodec.new
   end
 
   def self.snap_reference?(content)
@@ -25,6 +28,7 @@ class Resnapper
       next [line] if line !~ SNAP_REFERENCE_REGEX
 
       reference = $LAST_MATCH_INFO[1]
+      next [line] if no_current_occurrence?(line)
 
       if next_line_has_children?(line, lines[i + 1])
         [line]
@@ -71,6 +75,16 @@ class Resnapper
 
   def next_line_has_children?(line, next_line)
     next_line && indentation_size(next_line) > indentation_size(line)
+  end
+
+  # Skip/once replans don't represent an occurrence on the current date. Leave their snap references
+  # unresolved so Replanner can move the reference without seeing generated children on that date.
+  #
+  def no_current_occurrence?(line)
+    return false unless @replan_codec.replan_line?(line)
+
+    replan_data = @replan_codec.extract_replan_tokens(line, allow_placeholder: true)
+    replan_data.skip || replan_data.once
   end
 
   def indented_children(reference, line)
