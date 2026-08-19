@@ -56,8 +56,9 @@ class Retemplater
   private
 
   def merge_time_bracket(next_date_bracket, template_bracket, top_bracket:)
-    top_template_lines, bottom_template_lines = split_template_lines(template_bracket)
     next_date_lines = next_date_bracket.lines
+    remaining_template_lines = merge_matching_top_level_entries!(next_date_lines, template_bracket.lines)
+    top_template_lines, bottom_template_lines = split_template_lines(remaining_template_lines)
 
     insertion_i = top_bracket ? top_insertion_index(next_date_lines, start_i: 1) : 0
     next_date_lines.insert(insertion_i, *top_template_lines)
@@ -65,16 +66,51 @@ class Retemplater
     next_date_lines.join + bottom_template_lines.join
   end
 
+  # Exact top-level matches consume the template parent and append all its children. Matching takes
+  # precedence over top flags; a childless match only deduplicates the parent.
+  #
+  def merge_matching_top_level_entries!(next_date_lines, template_lines)
+    remaining_lines = []
+    template_i = 0
+
+    while template_i < template_lines.size
+      line = template_lines[template_i]
+
+      if line.match?(/\A\S/)
+        entry_end_i = template_i + 1
+        entry_end_i += 1 while template_lines[entry_end_i]&.match?(/\A /)
+
+        matching_i = next_date_lines.index(remove_template_top_flags(line))
+
+        if matching_i
+          insertion_i = matching_i + 1
+          insertion_i += 1 while next_date_lines[insertion_i]&.match?(/\A /)
+          children = template_lines[(template_i + 1)...entry_end_i].map(&method(:remove_template_top_flags))
+          next_date_lines.insert(insertion_i, *children)
+        else
+          remaining_lines.concat(template_lines[template_i...entry_end_i])
+        end
+
+        template_i = entry_end_i
+      else
+        remaining_lines << line
+        template_i += 1
+      end
+    end
+
+    remaining_lines
+  end
+
   # A caret after an event symbol is template-only syntax and may appear at any indentation.
   # Indented descendants belong to the caret-suffixed event and must move to the top along with it;
   # redundant carets on those descendants are stripped as well.
   #
-  def split_template_lines(template_bracket)
+  def split_template_lines(template_lines)
     top_lines = []
     bottom_lines = []
     top_entry_indentation = nil
 
-    template_bracket.lines.each do |line|
+    template_lines.each do |line|
       indentation = line[/\A */].size
 
       if top_entry_indentation && indentation > top_entry_indentation

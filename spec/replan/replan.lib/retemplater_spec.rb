@@ -69,6 +69,67 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
+  it "adds children of matching top-level entries to the existing entry in the same time bracket" do
+    source_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      S day qualifier
+      - shared entry
+        - existing child
+        - repeated child
+      - following existing entry
+      -----
+      - other entry
+      -----
+      -----
+      -----
+
+    TXT
+
+    matching_template = <<~TXT
+      -^ shared entry
+        -^ template child
+          - template grandchild
+        - repeated child
+      - following template entry
+      -----
+      - other entry
+      - shared entry
+        - child in another bracket
+      -----
+      -----
+      -----
+    TXT
+
+    expected_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      S day qualifier
+      - shared entry
+        - existing child
+        - repeated child
+        - template child
+          - template grandchild
+        - repeated child
+      - following existing entry
+      - following template entry
+      -----
+      - other entry
+      - shared entry
+        - child in another bracket
+      -----
+      -----
+      -----
+
+    TXT
+
+    actual_content = described_class.new(StringIO.new(matching_template)).execute(source_content)
+
+    expect(actual_content).to eql(expected_content)
+  end
+
   it "Should add caret-suffixed template events to the top of their time bracket" do
     source_content = <<~TXT
       #{current_day}
