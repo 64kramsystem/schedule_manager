@@ -166,16 +166,17 @@ describe ReplanCodec do
       expect(subject.rewrite_replan('myevent (replan s 5 in 6)')).to eql('myevent (replan 5)')
     end
 
-    it 'removes the time-block flag when rewriting a recurring replan' do
-      expect(subject.rewrite_replan('myevent (replan A 5)')).to eql('myevent (replan 5)')
+    it 'retains the time-block flag when rewriting a recurring replan' do
+      expect(subject.rewrite_replan('myevent (replan A 5)')).to eql('myevent (replan A 5)')
     end
 
     it 'retains carry and top flags when rewriting a recurring replan' do
       expect(subject.rewrite_replan('myevent (replan sc^ 5)')).to eql('myevent (replan c^ 5)')
     end
 
-    it 'retains top after consuming a time-block flag' do
-      expect(subject.rewrite_replan('myevent (replan A^ 5)')).to eql('myevent (replan ^ 5)')
+    it 'retains top and time-block flags' do
+      expect(subject.rewrite_replan('myevent (replan A^ 5)')).to eql('myevent (replan ^A 5)')
+      expect(subject.rewrite_replan('myevent (replan ^A 5)')).to eql('myevent (replan ^A 5)')
     end
 
     it 'should update a replan description' do

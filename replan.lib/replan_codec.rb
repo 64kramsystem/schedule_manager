@@ -27,7 +27,7 @@ class ReplanCodec
   # - update_full : `U` (optional)
   # - carry       : `c` (optional; retain children on recurring replans)
   # - top         : `^` (optional)
-  # - time_block  : `M`, `N`, `A`, or `E` (optional, consumed after one replan)
+  # - time_block  : `M`, `N`, `A`, or `E` (optional)
   # - interval    : interval format
   # - next        : interval format, `%a`, `%b/%d` (optional)
   #
@@ -112,6 +112,7 @@ class ReplanCodec
         replan_data.update_full,
         replan_data.carry,
         replan_data.top,
+        replan_data.time_block,
       ].join
       keywords = " #{retained_options}".rstrip
       interval = " #{replan_data.interval}".rstrip

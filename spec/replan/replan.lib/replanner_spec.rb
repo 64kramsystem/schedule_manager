@@ -576,7 +576,7 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "removes the flag after placing a recurring replan" do
+    it "retains the flag after placing a recurring replan" do
       test_content = <<~TXT
           MON 20/SEP/2021
       - recurring (replan A thu)
@@ -595,7 +595,7 @@ describe Replanner do
       -----
       -----
       - existing afternoon
-      - recurring (replan thu)
+      - recurring (replan A thu)
       -----
       -----
       TXT
@@ -625,9 +625,9 @@ describe Replanner do
       -----
       -----
       - existing afternoon
-      - first (replan c thu)
+      - first (replan cA thu)
         - first child
-      - second (replan c thu)
+      - second (replan cA thu)
         - second child
       -----
       -----
@@ -820,7 +820,7 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
-    it "combines with a one-shot time-block flag" do
+    it "combines with a retained time-block flag" do
       test_content = <<~TXT
           MON 20/SEP/2021
       - recurring (replan A^ 7)
@@ -838,7 +838,7 @@ describe Replanner do
           MON 27/SEP/2021
       -----
       -----
-      - recurring (replan ^ 7)
+      - recurring (replan ^A 7)
       - existing afternoon
       -----
       -----
