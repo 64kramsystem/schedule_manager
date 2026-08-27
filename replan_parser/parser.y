@@ -15,7 +15,8 @@ rule
     ;
 
   once_option
-    : TOP                          { checked_assign(:v_top, val.fetch(0)) }
+    : CARRY                        { checked_assign(:v_carry, val.fetch(0)) }
+    | TOP                          { checked_assign(:v_top, val.fetch(0)) }
     | TIME_BLOCK                   { assign_time_block(val.fetch(0)) }
     ;
 

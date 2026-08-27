@@ -25,7 +25,7 @@ class ReplanCodec
   # - skip        : `s` (optional)
   # - update      : `u` (optional)
   # - update_full : `U` (optional)
-  # - carry       : `c` (optional; retain children on recurring replans)
+  # - carry       : `c` (optional; include children in the planned occurrence)
   # - top         : `^` (optional)
   # - time_block  : `M`, `N`, `A`, or `E` (optional)
   # - interval    : interval format

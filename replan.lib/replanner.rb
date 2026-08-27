@@ -48,14 +48,14 @@ class Replanner
       current_prepended_day_qualifier_line_counts = Hash.new(0)
       current_date_section = find_date_section(content, current_date)
 
-      edited_current_date_section = current_date_section.dup
+      current_line_edits = {}
 
       replan_lines = find_replan_lines(current_date_section)
 
       # Entries are processed in reverse. Repeated top insertions restore their original order; trailing
       # line counts do the same for entries appended to a bracket.
       #
-      replan_lines.reverse.each do |replan_line, bracket_i, child_lines|
+      replan_lines.reverse.each do |replan_line, bracket_i, child_lines, replan_line_i, child_line_is|
         puts "> Processing replan line: #{replan_line.strip}" if debug
 
         event_on_current_date = !(@replan_codec.skipped_event?(replan_line) || @replan_codec.once_off_event?(replan_line))
@@ -148,9 +148,11 @@ class Replanner
           remove_replan(updated_replan_line || replan_line)
         end
 
-        # No-op if the update didn't change the content
-        #
-        edited_current_date_section = edited_current_date_section.sub(replan_line, edited_replan_line)
+        current_line_edits[replan_line_i] = edited_replan_line
+        # Skip/once occurrences leave the source date, so their carried children leave with them.
+        if (replan_data.skip || replan_data.once) && replan_data.carry
+          child_line_is.each { |child_line_i| current_line_edits[child_line_i] = '' }
+        end
 
         if skips_only && !debug && replan_line != edited_replan_line
           puts "> Moving line: #{replan_line.strip}"
@@ -160,6 +162,10 @@ class Replanner
       current_prepended_replan_line_counts.each do |destination_key, count|
         prepended_replan_line_counts[destination_key] += count
       end
+
+      edited_current_date_section = current_date_section.lines.each_with_index.map do |line, line_i|
+        current_line_edits.fetch(line_i, line)
+      end.join
 
       # No-op if no changes have been performed (see conditional before change block).
       #
@@ -171,25 +177,34 @@ class Replanner
 
   private
 
-  # Returns [[replan, bracket_i, child_lines], ...]. Child lines exclude nested replans, since they're
-  # replanned independently (see #own_children).
+  # Returns [[replan, bracket_i, child_lines, replan_line_i, child_line_is], ...]. Child lines exclude
+  # nested replans, since they're replanned independently (see #own_children).
   #
   def find_replan_lines(section)
-    brackets = section.split(TIME_BRACKETS_SEPARATOR)
+    lines = section.lines
+    bracket_i = 0
 
-    brackets.each_with_index.flat_map do |bracket, i|
-      lines = bracket.lines
-
-      lines.each_with_index.filter_map do |line, line_i|
-        next unless @replan_codec.replan_line?(line)
-
-        indentation = line[/\A */].length
-        descendants = lines[(line_i + 1)..].take_while do |candidate|
-          !candidate.strip.empty? && candidate[/\A */].length > indentation
-        end
-
-        [line, i, own_children(descendants)]
+    lines.each_with_index.filter_map do |line, line_i|
+      if line == TIME_BRACKETS_SEPARATOR
+        bracket_i += 1
+        next
       end
+
+      next unless @replan_codec.replan_line?(line)
+
+      indentation = line[/\A */].length
+      descendants = lines.each_with_index.drop(line_i + 1).take_while do |candidate, _|
+        !candidate.strip.empty? && candidate[/\A */].length > indentation
+      end
+      child_lines_with_indices = own_children(descendants)
+
+      [
+        line,
+        bracket_i,
+        child_lines_with_indices.map(&:first),
+        line_i,
+        child_lines_with_indices.map(&:last),
+      ]
     end
   end
 
@@ -202,7 +217,7 @@ class Replanner
 
   def verify_no_children(replan_line, replan_data, child_lines)
     # child_lines excludes nested replans, which are scheduled independently.
-    return unless child_lines.any? && (replan_data.skip || replan_data.once)
+    return unless child_lines.any? && (replan_data.skip || replan_data.once) && !replan_data.carry
 
     raise "Skip/once replan entry has children: #{replan_line.rstrip.inspect}"
   end
@@ -213,7 +228,7 @@ class Replanner
   def own_children(descendants)
     nested_replan_indentation = nil
 
-    descendants.select do |line|
+    descendants.select do |line, _|
       indentation = line[/\A */].length
 
       if nested_replan_indentation && indentation <= nested_replan_indentation

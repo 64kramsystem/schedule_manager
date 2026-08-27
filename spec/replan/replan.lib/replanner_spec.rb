@@ -9,7 +9,7 @@ module ReplannerSpecHelper
   # A simpler (UX-wise, not code-wise) implementation is to automatically gather the current_date
   # from the first header in the test_content, although this may be a bit too magical.
   #
-  def assert_replan(test_content, expected_next_date_section, current_date: CURRENT_DATE, skips_only: false, expected_stdout: //)
+  def assert_replan(test_content, expected_next_date_section, current_date: CURRENT_DATE, skips_only: false, expected_stdout: //, exact: false)
     # As of Jul/2024, an empty ending line is required by the parser, but it's very easy to forget,
     # and it causes a confusing error. For this reason, we add it automatically (if needed).
     #
@@ -18,7 +18,8 @@ module ReplannerSpecHelper
     Timecop.freeze(current_date) do
       expect {
         result = subject.execute(test_content, skips_only:)
-        expect(result).to include(expected_next_date_section)
+        matcher = exact ? eq(expected_next_date_section) : include(expected_next_date_section)
+        expect(result).to matcher
       }.to output(expected_stdout).to_stdout
     end
   end
@@ -177,6 +178,60 @@ describe Replanner do
       TXT
 
       assert_replan(test_content, expected_updated_content)
+    end
+
+    it "moves children when skipping a recurring event with c" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - … call m/p {{-4}} (replan csN 1w in 1)
+        - REGALO PAPA
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+
+          TUE 21/SEP/2021
+      -----
+      - … call m/p {{-5}} (replan cN 1w)
+        - REGALO PAPA
+      -----
+      -----
+      -----
+
+      TXT
+
+      expected_stdout = <<~TXT
+        > Interpolation: Sep/20:'… call m/p {{-4}}' → Sep/21:'… call m/p {{-5}}'
+      TXT
+
+      assert_replan(test_content, expected_updated_content, expected_stdout:, exact: true)
+    end
+
+    it "moves children when scheduling an event once with c" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - down movies (replan oNc tue)
+        - together (2025)
+        - obex
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+
+          TUE 21/SEP/2021
+      -----
+      - down movies
+        - together (2025)
+        - obex
+      -----
+      -----
+      -----
+
+      TXT
+
+      assert_replan(test_content, expected_updated_content, exact: true)
     end
 
     it "leaves descendants on the current occurrence when c is absent" do

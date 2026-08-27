@@ -80,12 +80,13 @@ describe ReplanCodec do
       ))
     end
 
-    it 'extracts a time-block flag from a once-off replan' do
-      tokens = subject.extract_replan_tokens('(replan oA thu)')
+    it 'extracts carry and time-block flags from a once-off replan' do
+      tokens = subject.extract_replan_tokens('(replan oNc tue)')
 
       expect(tokens.once).to eq('o')
-      expect(tokens.time_block).to eq('A')
-      expect(tokens.next).to eq('thu')
+      expect(tokens.carry).to eq('c')
+      expect(tokens.time_block).to eq('N')
+      expect(tokens.next).to eq('tue')
     end
 
     it 'rejects multiple time-block flags' do
@@ -96,13 +97,6 @@ describe ReplanCodec do
       }.to output(%Q{Error on line "(replan MA 1)"\n}).to_stderr
     end
 
-    it 'rejects the carry flag on a once-off replan' do
-      expect {
-        expect {
-          subject.extract_replan_tokens('(replan oc thu)')
-        }.to raise_error(Racc::ParseError, /parse error on value "c"/)
-      }.to output(%Q{Error on line "(replan oc thu)"\n}).to_stderr
-    end
   end
 
   context 'replan line detection' do
