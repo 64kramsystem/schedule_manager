@@ -29,39 +29,65 @@ describe Replanner do
   include ReplannerSpecHelper
 
   context "Events" do
-    it "replans a nested replan line independently, while c carries the other children" do
+    it "moves replan children with a skipped c parent" do
       test_content = <<~TXT
           MON 20/SEP/2021
-      * gym chest (replan c 3)
+      * gym chest (replan cs 3)
         + unload dishwasher
-        + 21:01. C:/14 (replan c 1)
-          - C:/14 child
         + stretch
+        + C:/14 (replan s 1)
+        + review (replan o in 2)
+
+          THU 23/SEP/2021
+      - existing
+
       TXT
 
       expected_updated_content = <<~TXT
           MON 20/SEP/2021
-      * gym chest
-        + unload dishwasher
-        + 21:01. C:/14
-          - C:/14 child
-        + stretch
-
-          TUE 21/SEP/2021
-      + C:/14 (replan c 1)
-        - C:/14 child
-      -----
-      -----
-      -----
-      -----
 
           THU 23/SEP/2021
+      - existing
       * gym chest (replan c 3)
         + unload dishwasher
         + stretch
+        + C:/14 (replan s 1)
+        + review (replan o in 2)
+      -----
+      -----
+      -----
+      -----
+
       TXT
 
-      assert_replan(test_content, expected_updated_content)
+      assert_replan(test_content, expected_updated_content, exact: true)
+    end
+
+    it "rejects replan children on a c parent without s" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      * gym chest (replan c 3)
+        + C:/14 (replan 1)
+
+      TXT
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Carry replan entry has replan children without `s`: "* gym chest (replan c 3)"')
+    end
+
+    it "rejects a replan child with children" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      * gym chest (replan cs 3)
+        + C:/14 (replan 1)
+          - nested child
+
+      TXT
+
+      expect {
+        subject.execute(test_content)
+      }.to raise_error('Replan child has children: "+ C:/14 (replan 1)"')
     end
 
     it "rejects children on a once-off event" do
