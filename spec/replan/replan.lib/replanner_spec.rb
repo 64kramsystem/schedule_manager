@@ -285,6 +285,128 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content)
     end
 
+    it "moves a level-2 event under the matching root in the destination block" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - download (replan A 2)
+        - watch (replan A 2)
+
+          WED 22/SEP/2021
+      * movies
+        - morning
+      -----
+      -----
+      * movies
+        - afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - download
+        - watch
+
+          WED 22/SEP/2021
+      * movies
+        - morning
+      -----
+      -----
+      * movies
+        - afternoon
+        - download (replan A 2)
+        - watch (replan A 2)
+      -----
+      -----
+
+      TXT
+
+      assert_replan(test_content, expected_updated_content, exact: true)
+    end
+
+    it "keeps root and bracket top ordering when moving a level-2 top event" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - nested top (replan ^A 2)
+      - first top (replan ^A 2)
+      - second top (replan ^A 2)
+
+          WED 22/SEP/2021
+      -----
+      -----
+      * movies
+        - existing child
+      - existing event
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - nested top
+      - first top
+      - second top
+
+          WED 22/SEP/2021
+      -----
+      -----
+      - first top (replan ^A 2)
+      - second top (replan ^A 2)
+      * movies
+        - nested top (replan ^A 2)
+        - existing child
+      - existing event
+      -----
+      -----
+
+      TXT
+
+      assert_replan(test_content, expected_updated_content, exact: true)
+    end
+
+    it "uses ordinary block placement when the root exists only in another destination block" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - download (replan A 2)
+
+          WED 22/SEP/2021
+      * movies
+        - morning
+      -----
+      -----
+      - afternoon
+      -----
+      -----
+
+      TXT
+
+      expected_updated_content = <<~TXT
+          MON 20/SEP/2021
+      * movies
+        - download
+
+          WED 22/SEP/2021
+      * movies
+        - morning
+      -----
+      -----
+      - afternoon
+      - download (replan A 2)
+      -----
+      -----
+
+      TXT
+
+      assert_replan(test_content, expected_updated_content, exact: true)
+    end
+
     it "should be moved according to their current day property, in default mode" do
       test_content = <<~TXT
           MON 20/SEP/2021

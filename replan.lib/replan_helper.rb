@@ -163,11 +163,12 @@ module ReplanHelper
   #
   # new_line: doesn't matter if it ends with a newline or note.
   # top_offset: line offset from the first eligible top position.
+  # root_line: when present, inserts new_line as a two-space-indented child of that exact root.
   #
   # A nice generic implementation of this could receive {bracket_i => new_line}.
   #
   def add_line_to_date_section(
-    content, date, new_line, bracket_i, top: false, top_offset: 0, trailing_lines: 0
+    content, date, new_line, bracket_i, top: false, top_offset: 0, trailing_lines: 0, root_line: nil
   )
     old_date_section = find_date_section(content, date)
 
@@ -196,12 +197,32 @@ module ReplanHelper
     brackets.fill(brackets.size, TIME_BRACKETS_COUNT - brackets.size + 1) { "" }
 
     bracket_lines = brackets[bracket_i].lines
-    insertion_i = if top
-      base_i = bracket_i.zero? ? top_insertion_index(bracket_lines) : 0
-      base_i + top_offset
+    insertion_i = if root_line
+      root_i = bracket_lines.index(root_line)
+      raise "Root line not found in destination bracket: #{root_line.rstrip.inspect}" unless root_i
+
+      if top
+        root_i + 1 + top_offset
+      else
+        root_end_i = root_i + 1
+        root_end_i += 1 while bracket_lines[root_end_i]&.match?(/\A /)
+        root_end_i - trailing_lines
+      end
     else
-      bracket_lines.length - trailing_lines
+      if top
+        base_i = bracket_i.zero? ? top_insertion_index(bracket_lines) : 0
+        base_i + top_offset
+      else
+        bracket_lines.length - trailing_lines
+      end
     end
+
+    if root_line
+      new_line = new_line.lines.map do |line|
+        line.strip.empty? ? line : "  #{line}"
+      end.join
+    end
+
     bracket_lines.insert(insertion_i, "#{new_line.rstrip}\n")
     brackets[bracket_i] = bracket_lines.join
 

@@ -45,10 +45,13 @@ class Replanner
     end
 
     prepended_replan_line_counts = Hash.new(0)
+    prepended_root_replan_line_counts = Hash.new(0)
 
     dates.each_with_index do |current_date, date_i|
       appended_replan_line_counts = Hash.new(0)
+      appended_root_replan_line_counts = Hash.new(0)
       current_prepended_replan_line_counts = Hash.new(0)
+      current_prepended_root_replan_line_counts = Hash.new(0)
       current_prepended_day_qualifier_line_counts = Hash.new(0)
       current_date_section = find_date_section(content, current_date)
 
@@ -67,7 +70,7 @@ class Replanner
       # Entries are processed in reverse. Repeated top insertions restore their original order; trailing
       # line counts do the same for entries appended to a bracket.
       #
-      replan_lines.reverse.each do |replan_line, bracket_i, child_lines, replan_line_i, child_line_is, descendants|
+      replan_lines.reverse.each do |replan_line, bracket_i, child_lines, replan_line_i, child_line_is, descendants, source_root_line|
         next if moved_replan_child_line_is.include?(replan_line_i)
 
         puts "> Processing replan line: #{replan_line.strip}" if debug
@@ -139,14 +142,30 @@ class Replanner
 
         destination_bracket_i = TIME_BLOCK_BRACKETS.fetch(replan_data.time_block, bracket_i)
         destination_key = [planned_date, destination_bracket_i]
-        day_qualifier = destination_bracket_i.zero? && day_qualifier_line?(planned_line)
+        matching_root_line = if matching_root_in_block?(
+          content,
+          planned_date,
+          destination_bracket_i,
+          source_root_line,
+        )
+          source_root_line
+        end
+        destination_root_key = [planned_date, destination_bracket_i, matching_root_line]
+        day_qualifier = !matching_root_line && destination_bracket_i.zero? && day_qualifier_line?(planned_line)
         # top_insertion_index has already advanced past qualifiers inserted earlier during this
         # source date. Subtract their lines to keep a fixed insertion point while iterating in reverse.
         #
-        top_offset = if day_qualifier
+        top_offset = if matching_root_line
+          prepended_root_replan_line_counts[destination_root_key]
+        elsif day_qualifier
           -current_prepended_day_qualifier_line_counts[destination_key]
         else
           prepended_replan_line_counts[destination_key]
+        end
+        trailing_lines = if matching_root_line
+          appended_root_replan_line_counts[destination_root_key]
+        else
+          appended_replan_line_counts[destination_key]
         end
         content = add_line_to_date_section(
           content,
@@ -155,10 +174,17 @@ class Replanner
           destination_bracket_i,
           top: !replan_data.top.nil?,
           top_offset:,
-          trailing_lines: appended_replan_line_counts[destination_key],
+          trailing_lines:,
+          root_line: matching_root_line,
         )
 
-        if replan_data.top
+        if matching_root_line
+          if replan_data.top
+            current_prepended_root_replan_line_counts[destination_root_key] += planned_line.lines.count
+          else
+            appended_root_replan_line_counts[destination_root_key] += planned_line.lines.count
+          end
+        elsif replan_data.top
           if day_qualifier
             current_prepended_day_qualifier_line_counts[destination_key] += planned_line.lines.count
           else
@@ -193,6 +219,9 @@ class Replanner
       current_prepended_replan_line_counts.each do |destination_key, count|
         prepended_replan_line_counts[destination_key] += count
       end
+      current_prepended_root_replan_line_counts.each do |destination_root_key, count|
+        prepended_root_replan_line_counts[destination_root_key] += count
+      end
 
       edited_current_date_section = current_date_section.lines.each_with_index.map do |line, line_i|
         current_line_edits.fetch(line_i, line)
@@ -208,16 +237,19 @@ class Replanner
 
   private
 
-  # Returns [[replan, bracket_i, child_lines, replan_line_i, child_line_is, descendants], ...]. Child
-  # lines exclude nested replans, since they're normally replanned independently (see #own_children).
+  # Returns [[replan, bracket_i, child_lines, replan_line_i, child_line_is, descendants,
+  # source_root_line], ...]. Child lines exclude nested replans, since they're normally replanned
+  # independently (see #own_children).
   #
   def find_replan_lines(section, ignored_line_marker: nil)
     lines = section.lines
     bracket_i = 0
+    bracket_start_i = 0
 
     lines.each_with_index.filter_map do |line, line_i|
       if line == TIME_BRACKETS_SEPARATOR
         bracket_i += 1
+        bracket_start_i = line_i + 1
         next
       end
 
@@ -229,6 +261,10 @@ class Replanner
         !candidate.strip.empty? && candidate[/\A */].length > indentation
       end
       child_lines_with_indices = own_children(descendants)
+      parent_line = lines[bracket_start_i...line_i].reverse.find do |candidate|
+        !candidate.strip.empty? && candidate[/\A */].length < indentation
+      end
+      source_root_line = parent_line&.match?(/\A\S/) ? parent_line : nil
 
       [
         line,
@@ -237,8 +273,17 @@ class Replanner
         line_i,
         child_lines_with_indices.map(&:last),
         descendants,
+        source_root_line,
       ]
     end
+  end
+
+  def matching_root_in_block?(content, date, bracket_i, root_line)
+    return false unless root_line
+
+    date_section = find_date_section(content, date)
+    bracket = date_section.split(TIME_BRACKETS_SEPARATOR)[bracket_i]
+    bracket&.lines&.include?(root_line)
   end
 
   def verify_no_children_on_moved_events(replan_lines)
