@@ -76,7 +76,7 @@ rule
   next
     : IN WHITESPACE INTERVAL       { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
     | ON WHITESPACE DAY            { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
-    | MONTH_DAY                    { self.v_next = val.fetch(0) }
+    | ON WHITESPACE MONTH_DAY      { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
     ;
 end
 

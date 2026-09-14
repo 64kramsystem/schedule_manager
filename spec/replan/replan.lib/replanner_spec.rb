@@ -1527,12 +1527,10 @@ describe Replanner do
         assert_replan(test_content, expected_next_date_section)
       end
 
-      # `dec/31 in N` is also supported, but since it's not useful, its "undocumented".
-      #
       it "Should allow month/day to be supported as next occurrence" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan tue dec/31)
+        - foo (replan tue on dec/31)
         TXT
 
         expected_next_date_section = <<~TXT
@@ -1546,7 +1544,7 @@ describe Replanner do
       it "Should allow day/month to be supported as next occurrence" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan tue 31/dec)
+        - foo (replan tue on 31/dec)
         TXT
 
         expected_next_date_section = <<~TXT
@@ -1560,7 +1558,7 @@ describe Replanner do
       it "Should assign the next year, when the month/day next occurrence is in the past" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan tue jan/5)
+        - foo (replan tue on jan/5)
         TXT
 
         expected_next_date_section = <<~TXT
@@ -1569,6 +1567,40 @@ describe Replanner do
         TXT
 
         assert_replan(test_content, expected_next_date_section)
+      end
+
+      it 'supports a once-off month/day occurrence with on' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan o on dec/31)
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+
+            FRI 31/DEC/2021
+        - foo
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
+      it 'rejects an invalid month/day occurrence with on' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - foo (replan tue on jun/31)
+
+        TXT
+
+        Timecop.freeze(ReplannerSpecHelper::CURRENT_DATE) do
+          expect { subject.execute(test_content) }.to raise_error(Date::Error, 'invalid date')
+        end
       end
 
       it "Should set the day in the following week, when the weekday matches the current day" do
