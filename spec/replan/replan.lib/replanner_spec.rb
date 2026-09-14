@@ -1516,7 +1516,7 @@ describe Replanner do
       it "Should allow weekday+ to be supported as next occurrence" do
         test_content = <<~TXT
             MON 20/SEP/2021
-        - foo (replan tue tue+)
+        - foo (replan tue on tue+)
         TXT
 
         expected_next_date_section = <<~TXT

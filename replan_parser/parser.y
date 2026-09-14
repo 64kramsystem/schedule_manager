@@ -5,7 +5,7 @@ rule
     ;
 
   definition
-    : once_options WHITESPACE next
+    : once_options WHITESPACE once_next
     | options_optional period_and_next
     ;
 
@@ -68,9 +68,14 @@ rule
     | FIRST_DAY                    { self.v_interval = val.fetch(0) }
     ;
 
+  once_next
+    : DAY                          { self.v_next = val.fetch(0) }
+    | next
+    ;
+
   next
     : IN WHITESPACE INTERVAL       { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
-    | DAY                          { self.v_next = val.fetch(0) }
+    | ON WHITESPACE DAY            { self.v_next_prefix = val.fetch(0); self.v_next = val.fetch(2) }
     | MONTH_DAY                    { self.v_next = val.fetch(0) }
     ;
 end

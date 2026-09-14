@@ -14,6 +14,7 @@ macro
   U_LOW       u
   U_UP        U
   ONCE        o
+  ON          on
   CARRY       c
   TOP         \^
   TIME_BLOCK  [MNAE]
@@ -33,6 +34,7 @@ rule
   {S}           { [:S, text] }
   {U_LOW}       { [:U_LOW, text] }
   {U_UP}        { [:U_UP, text] }
+  {ON}          { [:ON, text] }
   {ONCE}        { [:ONCE, text] }
   {CARRY}       { [:CARRY, text] }
   {TOP}         { [:TOP, text] }

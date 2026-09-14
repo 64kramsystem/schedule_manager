@@ -92,6 +92,9 @@ class ReplanParser < Racc::Parser
                   when (text = @ss.scan(/U/))
                      action { [:U_UP, text] }
 
+                  when (text = @ss.scan(/on/))
+                     action { [:ON, text] }
+
                   when (text = @ss.scan(/o/))
                      action { [:ONCE, text] }
 

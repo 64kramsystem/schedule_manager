@@ -18,10 +18,10 @@ ruby -r "$(dirname "$0")"/../replan.lib/replan_parser.rb <<'RUBY'
     "replan s sun",
     "replan sun",
     "replan mon+",
-    # For simplicity, the parser currently support `sun sun`, and cases of `sun in N` where (Today+N)
+    # For simplicity, the parser currently support `sun on sun`, and cases of `sun in N` where (Today+N)
     # is not `sun`; they are not realworld, but they're consistent, so they're not worth excluding.
     # The case `sun in N` is kept undocumented.
-    "replan sun sun+",
+    "replan sun on sun+",
     "replan -mon",
     "replan -2mon",
     "replan -11",
