@@ -11,7 +11,13 @@ rule
 
   once_options
     : option_once
+    | shared_options option_once
     | once_options once_option
+    ;
+
+  shared_options
+    : once_option
+    | shared_options once_option
     ;
 
   once_option
@@ -25,19 +31,27 @@ rule
     ;
 
   options
-    : options option
-    | option
+    : shared_options
+    | recurring_options
+    | shared_options recurring_options
+    ;
+
+  recurring_options
+    : recurring_option
+    | recurring_options option
     ;
 
   option
+    : recurring_option
+    | once_option
+    ;
+
+  recurring_option
     : F                            { checked_assign(:v_f, val.fetch(0)) }
     | F TIME                       { checked_assign(:v_f, val.fetch(0)); checked_assign(:v_f_time, val.fetch(1)) }
     | S                            { checked_assign(:v_s, val.fetch(0)) }
     | U_LOW                        { checked_assign(:v_ul, val.fetch(0)) }
     | U_UP                         { checked_assign(:v_uu, val.fetch(0)) }
-    | CARRY                        { checked_assign(:v_carry, val.fetch(0)) }
-    | TOP                          { checked_assign(:v_top, val.fetch(0)) }
-    | TIME_BLOCK                   { assign_time_block(val.fetch(0)) }
     ;
 
   option_once
