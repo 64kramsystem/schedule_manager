@@ -13,6 +13,7 @@ ruby -r "$(dirname "$0")"/../replan.lib/replan_parser.rb <<'RUBY'
   examples = [
     "replan 2.5w",
     "replan fsuc^ 2w",
+    "replan pA 2w",
     "replan U 2w",
     "replan f18:33suc^ 2w",
     "replan s sun",
@@ -32,6 +33,7 @@ ruby -r "$(dirname "$0")"/../replan.lib/replan_parser.rb <<'RUBY'
     "replan 2w on 31/dec",
     "replan fsu 2w in 3d",
     "replan o in 3d",
+    "replan op in 2w",
     "replan o wed+",
     "replan o^A wed+",
   ]

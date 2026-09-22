@@ -101,6 +101,9 @@ class ReplanParser < Racc::Parser
                   when (text = @ss.scan(/c/))
                      action { [:CARRY, text] }
 
+                  when (text = @ss.scan(/p/))
+                     action { [:CARRY_PARENT, text] }
+
                   when (text = @ss.scan(/\^/))
                      action { [:TOP, text] }
 

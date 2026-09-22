@@ -26,6 +26,7 @@ class ReplanCodec
   # - update      : `u` (optional)
   # - update_full : `U` (optional)
   # - carry       : `c` (optional; include children in the planned occurrence)
+  # - carry_parent: `p` (optional; include the immediate root parent in the planned occurrence)
   # - top         : `^` (optional)
   # - time_block  : `M`, `N`, `A`, or `E` (optional)
   # - interval    : interval format
@@ -111,6 +112,7 @@ class ReplanCodec
         replan_data.update,
         replan_data.update_full,
         replan_data.carry,
+        replan_data.carry_parent,
         replan_data.top,
         replan_data.time_block,
       ].join

@@ -36,16 +36,17 @@ class Replanner
     dates = find_all_dates(content)
 
     # Validate the whole schedule before an update can prompt the user. Full updates are checked
-    # again below because their new text can introduce a skip/once flag.
+    # again below because their new text can introduce skip/once/parent-carry flags.
     #
     dates.each_with_index do |date, date_i|
       replan_lines = find_replan_lines(find_date_section(content, date))
-      verify_no_children_on_moved_events(replan_lines)
+      verify_replan_lines(replan_lines)
       replan_children_to_move(replan_lines, reject_unskipped: date_i.zero?)
     end
 
     prepended_replan_line_counts = Hash.new(0)
     prepended_root_replan_line_counts = Hash.new(0)
+    carried_root_placements = {}
 
     dates.each_with_index do |current_date, date_i|
       appended_replan_line_counts = Hash.new(0)
@@ -100,6 +101,7 @@ class Replanner
           planned_line = full_update_line(planned_line)
           replan_data = decode_replan_data(planned_line)
           verify_no_children(planned_line, replan_data, child_lines)
+          verify_carry_parent(planned_line, replan_data, source_root_line)
 
           # See simple update case.
           #
@@ -150,7 +152,16 @@ class Replanner
         )
           source_root_line
         end
-        destination_root_key = [planned_date, destination_bracket_i, matching_root_line]
+        carrying_new_root = replan_data.carry_parent && !matching_root_line
+        destination_root_key = [
+          planned_date,
+          destination_bracket_i,
+          matching_root_line || (source_root_line if carrying_new_root),
+        ]
+        if carrying_new_root
+          carried_child_line_count = planned_line.lines.count
+          planned_line = source_root_line + planned_line.lines.map { |line| "  #{line}" }.join
+        end
         day_qualifier = !matching_root_line && destination_bracket_i.zero? && day_qualifier_line?(planned_line)
         # top_insertion_index has already advanced past qualifiers inserted earlier during this
         # source date. Subtract their lines to keep a fixed insertion point while iterating in reverse.
@@ -192,6 +203,26 @@ class Replanner
           end
         else
           appended_replan_line_counts[destination_key] += planned_line.lines.count
+        end
+
+        if carrying_new_root
+          placement = replan_data.top ? (day_qualifier ? :day_qualifier : :top) : :append
+          carried_root_placements[destination_root_key] = [date_i, placement]
+          root_counts = replan_data.top ? current_prepended_root_replan_line_counts : appended_root_replan_line_counts
+          root_counts[destination_root_key] += carried_child_line_count
+        elsif matching_root_line && (root_placement = carried_root_placements[destination_root_key])
+          # Children extend the copied root's block insertion, even when they use different flags.
+          # For a root prepended on an earlier date, extend the existing prefix immediately.
+          root_date_i, placement = root_placement
+          case placement
+          when :top
+            counts = root_date_i == date_i ? current_prepended_replan_line_counts : prepended_replan_line_counts
+            counts[destination_key] += planned_line.lines.count
+          when :append
+            appended_replan_line_counts[destination_key] += planned_line.lines.count if root_date_i == date_i
+          when :day_qualifier
+            current_prepended_day_qualifier_line_counts[destination_key] += planned_line.lines.count if root_date_i == date_i
+          end
         end
 
         edited_replan_line = if replan_data.skip || replan_data.once
@@ -286,10 +317,21 @@ class Replanner
     bracket&.lines&.include?(root_line)
   end
 
-  def verify_no_children_on_moved_events(replan_lines)
-    replan_lines.each do |replan_line, _, child_lines|
+  def verify_replan_lines(replan_lines)
+    replan_lines.each do |replan_line, _, child_lines, _, _, _, source_root_line|
       replan_data = @replan_codec.extract_replan_tokens(replan_line, allow_placeholder: true)
       verify_no_children(replan_line, replan_data, child_lines)
+      verify_carry_parent(replan_line, replan_data, source_root_line)
+    end
+  end
+
+  def verify_carry_parent(line, replan_data, source_root_line)
+    return unless replan_data.carry_parent
+
+    if !source_root_line
+      raise "Parent-carry entry requires a direct root parent: #{line.strip.inspect}"
+    elsif @replan_codec.replan_line?(source_root_line)
+      raise "Parent-carry entry has a parent with its own replan: #{line.strip.inspect}"
     end
   end
 

@@ -407,6 +407,300 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content, exact: true)
     end
 
+    context 'carrying root parents with p' do
+      {
+        'p' => ["  - download\n", ' (replan p 2)'],
+        'sp' => ['', ' (replan p 2)'],
+        'op' => ['', ''],
+      }.each do |flags, (source_child, destination_replan)|
+        it "copies only the root parent for #{flags}" do
+          period = flags.include?('o') ? 'in 2' : '2'
+          test_content = <<~TXT
+              MON 20/SEP/2021
+          * movies
+            - download (replan #{flags} #{period})
+            - sibling
+
+          TXT
+
+          expected_updated_content = <<~TXT
+              MON 20/SEP/2021
+          * movies
+          #{source_child}  - sibling
+
+              WED 22/SEP/2021
+          * movies
+            - download#{destination_replan}
+          -----
+          -----
+          -----
+          -----
+
+          TXT
+
+          assert_replan(test_content, expected_updated_content, exact: true)
+        end
+      end
+
+      it 'reuses the parent in the requested block and carries the child subtree with c' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+          - download (replan cspA 2)
+            - select quality
+              - prefer HD
+
+            WED 22/SEP/2021
+        * movies
+          - morning
+        -----
+        -----
+        * movies
+          - existing
+        -----
+        -----
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+
+            WED 22/SEP/2021
+        * movies
+          - morning
+        -----
+        -----
+        * movies
+          - existing
+          - download (replan cpA 2)
+            - select quality
+              - prefer HD
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
+      ['', '^'].each do |top|
+        it "keeps newly copied parents and their children together with #{top.empty? ? 'ordinary' : 'top'} placement" do
+          test_content = <<~TXT
+              MON 20/SEP/2021
+          - first (replan #{top}A 2)
+          * movies
+            - download (replan p#{top}A 2)
+            - watch (replan p#{top}A 2)
+          - last (replan #{top}A 2)
+
+              WED 22/SEP/2021
+          * movies
+            - morning
+          -----
+          -----
+          - existing
+          -----
+          -----
+
+          TXT
+
+          expected_updated_content = <<~TXT
+              MON 20/SEP/2021
+          - first
+          * movies
+            - download
+            - watch
+          - last
+
+              WED 22/SEP/2021
+          * movies
+            - morning
+          -----
+          -----
+          #{top.empty? ? "- existing\n" : ''}- first (replan #{top}A 2)
+          * movies
+            - download (replan p#{top}A 2)
+            - watch (replan p#{top}A 2)
+          - last (replan #{top}A 2)
+          #{top.empty? ? '' : "- existing\n"}-----
+          -----
+
+          TXT
+
+          assert_replan(test_content, expected_updated_content, exact: true)
+        end
+      end
+
+      it 'keeps top ordering across source dates when a copied parent gains more children' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+          - monday (replan p^ 3)
+        - monday standalone (replan ^ 3)
+
+            TUE 21/SEP/2021
+        - tuesday first (replan s^ 2)
+        * movies
+          - tuesday (replan sp^ 2)
+        - tuesday standalone (replan s^ 2)
+
+            THU 23/SEP/2021
+        - existing
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+          - monday
+        - monday standalone
+
+            TUE 21/SEP/2021
+        * movies
+
+            THU 23/SEP/2021
+        * movies
+          - monday (replan p^ 3)
+          - tuesday (replan p^ 2)
+        - monday standalone (replan ^ 3)
+        - tuesday first (replan ^ 2)
+        - tuesday standalone (replan ^ 2)
+        - existing
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
+      it 'keeps an appended parent group together when a later source date adds a child' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+          - monday (replan p 3)
+
+            TUE 21/SEP/2021
+        - tuesday first (replan s 2)
+        * movies
+          - tuesday (replan sp 2)
+
+            THU 23/SEP/2021
+        - existing
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+        * movies
+          - monday
+
+            TUE 21/SEP/2021
+        * movies
+
+            THU 23/SEP/2021
+        - existing
+        * movies
+          - monday (replan p 3)
+          - tuesday (replan p 2)
+        - tuesday first (replan 2)
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
+      it 'keeps copied day qualifiers and their child groups ahead of ordinary top entries' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        S first qualifier
+          - first (replan p^ 2)
+        % second qualifier
+          - second (replan p^ 2)
+          - third (replan p^ 2)
+        - standalone (replan ^ 2)
+
+            WED 22/SEP/2021
+        S existing qualifier
+          - existing child
+        - existing
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+        S first qualifier
+          - first
+        % second qualifier
+          - second
+          - third
+        - standalone
+
+            WED 22/SEP/2021
+        S existing qualifier
+          - existing child
+        S first qualifier
+          - first (replan p^ 2)
+        % second qualifier
+          - second (replan p^ 2)
+          - third (replan p^ 2)
+        - standalone (replan ^ 2)
+        - existing
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
+      {
+        'an entry without a parent' => "- child (replan p 2)\n",
+        'a child of a nested parent' => "* root\n  - parent\n    - child (replan p 2)\n",
+      }.each do |description, entries|
+        it "rejects #{description}" do
+          content = "    MON 20/SEP/2021\n#{entries}\n"
+          expect { subject.execute(content) }.to raise_error(/Parent-carry entry requires a direct root parent/)
+        end
+      end
+
+      it 'rejects a parent with its own replan before prompting for updates' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * movies (replan U 7)
+          - download (replan p 2)
+
+        TXT
+
+        expect_any_instance_of(InputHelper).not_to receive(:ask)
+        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry has a parent with its own replan/)
+      end
+
+      it 'validates p introduced by a full update' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        - download (replan U 2)
+
+        TXT
+
+        expect_any_instance_of(InputHelper)
+          .to receive(:ask)
+          .with('Enter the new description:', prefill: 'download (replan U 2)')
+          .and_return('download (replan Up 2)')
+
+        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry requires a direct root parent/)
+      end
+    end
+
     it "should be moved according to their current day property, in default mode" do
       test_content = <<~TXT
           MON 20/SEP/2021

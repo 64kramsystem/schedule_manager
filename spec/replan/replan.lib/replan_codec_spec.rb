@@ -5,7 +5,7 @@ require_relative '../../../replan.lib/replan_codec.rb'
 describe ReplanCodec do
   context "token extraction" do
     it 'for string with all the functionalities (except once)' do
-      tokens = subject.extract_replan_tokens('(replan f13:33suUc^ 2w in 3m)')
+      tokens = subject.extract_replan_tokens('(replan f13:33suUcp^ 2w in 3m)')
 
       expect(tokens).to eql(OpenStruct.new(
         fixed: 'f',
@@ -15,6 +15,7 @@ describe ReplanCodec do
         update_full: 'U',
         once: nil,
         carry: 'c',
+        carry_parent: 'p',
         top: '^',
         time_block: nil,
         interval: '2w',
@@ -34,6 +35,7 @@ describe ReplanCodec do
         update_full: nil,
         once: 'o',
         carry: nil,
+        carry_parent: nil,
         top: '^',
         time_block: nil,
         interval: nil,
@@ -53,6 +55,7 @@ describe ReplanCodec do
         update_full: nil,
         once: nil,
         carry: nil,
+        carry_parent: nil,
         top: nil,
         time_block: nil,
         interval: 'wed',
@@ -72,6 +75,7 @@ describe ReplanCodec do
         update_full: nil,
         once: nil,
         carry: nil,
+        carry_parent: nil,
         top: nil,
         time_block: nil,
         interval: '1',
