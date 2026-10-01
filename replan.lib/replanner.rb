@@ -144,23 +144,28 @@ class Replanner
 
         destination_bracket_i = TIME_BLOCK_BRACKETS.fetch(replan_data.time_block, bracket_i)
         destination_key = [planned_date, destination_bracket_i]
+        destination_root_line = if replan_data.carry_parent
+          source_root_line.sub(/\A(. )\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\. /, '\1')
+        else
+          source_root_line
+        end
         matching_root_line = if matching_root_in_block?(
           content,
           planned_date,
           destination_bracket_i,
-          source_root_line,
+          destination_root_line,
         )
-          source_root_line
+          destination_root_line
         end
         carrying_new_root = replan_data.carry_parent && !matching_root_line
         destination_root_key = [
           planned_date,
           destination_bracket_i,
-          matching_root_line || (source_root_line if carrying_new_root),
+          matching_root_line || (destination_root_line if carrying_new_root),
         ]
         if carrying_new_root
           carried_child_line_count = planned_line.lines.count
-          planned_line = source_root_line + planned_line.lines.map { |line| "  #{line}" }.join
+          planned_line = destination_root_line + planned_line.lines.map { |line| "  #{line}" }.join
         end
         day_qualifier = !matching_root_line && destination_bracket_i.zero? && day_qualifier_line?(planned_line)
         # top_insertion_index has already advanced past qualifiers inserted earlier during this

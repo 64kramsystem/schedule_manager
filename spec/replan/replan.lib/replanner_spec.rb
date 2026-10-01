@@ -408,6 +408,72 @@ describe Replanner do
     end
 
     context 'carrying root parents with p' do
+      ['9:30', '12:30-13:00'].each do |time|
+        ['p', 'sp', 'op'].each do |flags|
+          it "copies the parent without its #{time} time for #{flags}" do
+            period = flags.include?('o') ? 'in 2' : '2'
+            test_content = <<~TXT
+                MON 20/SEP/2021
+            * #{time}. movies
+              - download (replan #{flags} #{period})
+
+            TXT
+
+            source_child = flags == 'p' ? "  - download\n" : ''
+            destination_replan = flags == 'op' ? '' : ' (replan p 2)'
+            expected_updated_content = <<~TXT
+                MON 20/SEP/2021
+            * #{time}. movies
+            #{source_child}
+                WED 22/SEP/2021
+            * movies
+              - download#{destination_replan}
+            -----
+            -----
+            -----
+            -----
+
+            TXT
+
+            assert_replan(test_content, expected_updated_content, exact: true)
+          end
+        end
+      end
+
+      it 'reuses an untimed destination parent for children from timed parents' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * 9:30. movies
+          - download (replan sp 2)
+        * 12:30-13:00. movies
+          - watch (replan sp 2)
+
+            WED 22/SEP/2021
+        * movies
+          - existing
+
+        TXT
+
+        expected_updated_content = <<~TXT
+            MON 20/SEP/2021
+        * 9:30. movies
+        * 12:30-13:00. movies
+
+            WED 22/SEP/2021
+        * movies
+          - existing
+          - download (replan p 2)
+          - watch (replan p 2)
+        -----
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_updated_content, exact: true)
+      end
+
       {
         'p' => ["  - download\n", ' (replan p 2)'],
         'sp' => ['', ' (replan p 2)'],
