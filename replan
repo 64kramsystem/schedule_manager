@@ -5,9 +5,6 @@ require 'io/console'
 require 'shellwords'
 require 'tempfile'
 
-require 'simple_scripting/argv'
-require 'simple_scripting/configuration'
-
 require_relative "#{File.basename(__FILE__)}.lib/replan_helper"
 require_relative "#{File.basename(__FILE__)}.lib/archive_reader"
 
@@ -29,7 +26,7 @@ def to_i(bool)
   bool ? 1 : 0
 end
 
-def conditional_save(content, original_content, schedule_filename, archive_filename, compare: false, skips_only:)
+def conditional_save(content, original_content, schedule_filename, archive_filename, compare: false, archive_current_day:)
   if content != original_content
     if compare
       merge_program = MERGE_PROGRAM || raise("$SCRIPTING_MERGE_PROGRAM is required when saving with compare")
@@ -45,7 +42,7 @@ def conditional_save(content, original_content, schedule_filename, archive_filen
     end
 
     if confirm_commit == "y"
-      if !skips_only
+      if archive_current_day
         Remover.new.execute(schedule_filename, archive_filename, content)
       else
         IO.write(schedule_filename, content)
@@ -60,6 +57,16 @@ end
 
 class Replan
   include ReplanHelper
+
+  def apply_template(schedule_filename, template_filename:, day:, compare:)
+    raise "template_filename is required in day mode" if !template_filename
+
+    original_content = IO.read(schedule_filename)
+    content = ensure_trailing_blank_line(original_content)
+    content = Retemplater.new(template_filename).execute(content, date: day)
+
+    conditional_save(content, original_content, schedule_filename, nil, compare:, archive_current_day: false)
+  end
 
   def list(schedule_filename, archive_filename, event_symbols, export: nil)
     archive_contents = ArchiveReader.new(archive_filename).read(export_start: export)
@@ -95,19 +102,24 @@ class Replan
 
     content = Replanner.new.execute(content, debug:, skips_only:)
 
-    conditional_save(content, original_content, schedule_filename, archive_filename, compare:, skips_only:)
+    conditional_save(content, original_content, schedule_filename, archive_filename, compare:, archive_current_day: !skips_only)
   end
 end
 
 if __FILE__ == $PROGRAM_NAME
+  require 'simple_scripting/argv'
+
   options = SimpleScripting::Argv.decode(
     [ "-D", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
+    [ "-d", "--day DAY",       "Apply the template to DAY (YYYY-MM-DD) without processing the current day" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
     [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
     [ "-s", "--skips-only",    "Only move skips/once-offs"],
     [ "-w", "--work",          "Compute the work hours for the current day"],
   ) || exit
+
+  require 'simple_scripting/configuration'
 
   configuration = SimpleScripting::Configuration.load
   schedule_filename = configuration.schedule_filename.full_path
@@ -116,6 +128,7 @@ if __FILE__ == $PROGRAM_NAME
   export = options[:export]
   list = !!options[:list]
   work = !!options[:work]
+  day = options[:day]
   debug = options.delete(:debug)
 
   if to_i(export) + to_i(work) + to_i(list) > 1
@@ -123,7 +136,16 @@ if __FILE__ == $PROGRAM_NAME
   end
 
   begin
-    if !!export
+    if day
+      raise "Day mode is only compatible with compare and debug options" if (options.keys - [:day, :compare]).any?
+      raise "Invalid day: #{day.inspect}; expected YYYY-MM-DD" if !day.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
+      day = Date.iso8601(day)
+      template_filename = TEMPLATE || configuration.template_filename&.full_path
+      compare = !!options[:compare]
+
+      Replan.new.apply_template(schedule_filename, template_filename:, day:, compare:)
+    elsif !!export
       raise "Export mode is not compatible with other options" if options.size > 1
 
       archive_filename = configuration.archive_filename.full_path

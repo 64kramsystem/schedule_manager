@@ -69,6 +69,43 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
+  it "fills an explicitly selected date instead of the next day" do
+    next_day = <<~TXT
+          SUN 11/JUL/2021
+      -----
+      -----
+      -----
+      -----
+
+    TXT
+    selected_day = <<~TXT
+          MON 12/JUL/2021
+      - existing
+      -----
+      -----
+      -----
+      -----
+
+    TXT
+    source_content = current_day + "\n" + next_day + selected_day
+    expected_day = <<~TXT
+          MON 12/JUL/2021
+      - existing
+      -----
+      - bar1
+      -----
+      - baz1
+      -----
+      - qux1
+      -----
+
+    TXT
+
+    actual_content = described_class.new(StringIO.new(template)).execute(source_content, date: Date.new(2021, 7, 12))
+
+    expect(actual_content).to eq(current_day + "\n" + next_day + expected_day)
+  end
+
   it "adds children of matching top-level entries to the existing entry in the same time bracket" do
     source_content = <<~TXT
       #{current_day}
