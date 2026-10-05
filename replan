@@ -113,6 +113,7 @@ if __FILE__ == $PROGRAM_NAME
     [ "-D", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
     [ "-d", "--day DAY",       "Apply the template to DAY (YYYY-MM-DD) without processing the current day" ],
+    [ "-t", "--no-template",   "Process the current day without applying the template to the next day" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
     [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
     [ "-s", "--skips-only",    "Only move skips/once-offs"],
@@ -160,12 +161,14 @@ if __FILE__ == $PROGRAM_NAME
       Replan.new.list(schedule_filename, archive_filename, event_symbols)
     else
       if work
+        raise "Work mode is not compatible with no-template" if options.key?(:no_template)
+
         content = Cleaner.new.execute(IO.read(schedule_filename))
         work_hours = Reworker.new.compute_first_date_work_hours(content)
         puts "Work hours: #{work_hours}"
       else
         archive_filename = configuration.archive_filename.full_path
-        template_filename = TEMPLATE || configuration.template_filename&.full_path
+        template_filename = (TEMPLATE || configuration.template_filename&.full_path) unless options.key?(:no_template)
         snap_filename = configuration.snap_filename&.full_path
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
