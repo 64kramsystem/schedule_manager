@@ -101,7 +101,7 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   options = SimpleScripting::Argv.decode(
-    [ "-d", "--debug",         "Debug mode" ],
+    [ "-D", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
     [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
