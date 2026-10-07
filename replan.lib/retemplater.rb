@@ -64,7 +64,7 @@ class Retemplater
     next_date_lines.join + bottom_template_lines.join
   end
 
-  # Exact top-level matches consume the template parent and append all its children. Matching takes
+  # Top-level matches ignore timestamps and comments, preserving the existing parent. Matching takes
   # precedence over top flags; a childless match only deduplicates the parent.
   #
   def merge_matching_top_level_entries!(next_date_lines, template_lines)
@@ -78,7 +78,8 @@ class Retemplater
         entry_end_i = template_i + 1
         entry_end_i += 1 while template_lines[entry_end_i]&.match?(/\A /)
 
-        matching_i = next_date_lines.index(remove_template_top_flags(line))
+        parent_key = template_parent_key(line)
+        matching_i = next_date_lines.index { |candidate| template_parent_key(candidate) == parent_key }
 
         if matching_i
           insertion_i = matching_i + 1
@@ -97,6 +98,13 @@ class Retemplater
     end
 
     remaining_lines
+  end
+
+  def template_parent_key(line)
+    remove_template_top_flags(line)
+      .sub(/\A(. )\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\. /, '\1')
+      .sub(/ #.*$/, '')
+      .rstrip
   end
 
   # A caret after an event symbol is template-only syntax and may appear at any indentation.

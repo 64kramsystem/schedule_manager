@@ -167,6 +167,83 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
+  [
+    ['- 08:37. work', '-^ work'],
+    ['- work # mega-brogramming', '-^ work'],
+    ['- 08:37. work # mega-brogramming', '-^ work'],
+    ['- 08:37-12:00. work # mega-brogramming', '-^ work'],
+    ['- work', '-^ 09:00-12:00. work # template comment'],
+    ['- 08:37. work # mega-brogramming', '-^ 09:00. work # template comment'],
+  ].each do |existing_parent, template_parent|
+    it "merges #{template_parent.inspect} into #{existing_parent.inspect} preserving the existing parent" do
+      source_content = <<~TXT
+        #{current_day}
+
+            SUN 11/JUL/2021
+        #{existing_parent}
+          * 10:00. monthly meeting (replan f10:00p +1tue)
+        - following existing entry
+        -----
+        -----
+        -----
+        -----
+
+      TXT
+
+      matching_template = <<~TXT
+        #{template_parent}
+          - COFFEE+DAILY OVERVIEW
+        -----
+        -----
+        -----
+        -----
+      TXT
+
+      expected_content = source_content.sub(
+        '- following existing entry',
+        "  - COFFEE+DAILY OVERVIEW\n- following existing entry",
+      )
+
+      actual_content = described_class.new(StringIO.new(matching_template)).execute(source_content)
+
+      expect(actual_content).to eql(expected_content)
+    end
+  end
+
+  it "keeps different event symbols and nested parents separate when ignoring timestamps and comments" do
+    source_content = <<~TXT
+      #{current_day}
+
+          SUN 11/JUL/2021
+      + 08:37. work # other symbol
+      - other parent
+        - 08:37. work # nested entry
+      -----
+      -----
+      -----
+      -----
+
+    TXT
+
+    matching_template = <<~TXT
+      -^ work
+        - COFFEE+DAILY OVERVIEW
+      -----
+      -----
+      -----
+      -----
+    TXT
+
+    expected_content = source_content.sub(
+      '+ 08:37. work # other symbol',
+      "- work\n  - COFFEE+DAILY OVERVIEW\n+ 08:37. work # other symbol",
+    )
+
+    actual_content = described_class.new(StringIO.new(matching_template)).execute(source_content)
+
+    expect(actual_content).to eql(expected_content)
+  end
+
   it "Should add caret-suffixed template events to the top of their time bracket" do
     source_content = <<~TXT
       #{current_day}
