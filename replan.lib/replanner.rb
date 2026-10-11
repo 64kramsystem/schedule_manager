@@ -280,12 +280,10 @@ class Replanner
   def find_replan_lines(section, ignored_line_marker: nil)
     lines = section.lines
     bracket_i = 0
-    bracket_start_i = 0
 
     lines.each_with_index.filter_map do |line, line_i|
       if line == TIME_BRACKETS_SEPARATOR
         bracket_i += 1
-        bracket_start_i = line_i + 1
         next
       end
 
@@ -297,8 +295,9 @@ class Replanner
         !candidate.strip.empty? && candidate[/\A */].length > indentation
       end
       child_lines_with_indices = own_children(descendants)
-      parent_line = lines[bracket_start_i...line_i].reverse.find do |candidate|
-        !candidate.strip.empty? && candidate[/\A */].length < indentation
+      parent_line = lines[0...line_i].reverse.find do |candidate|
+        candidate != TIME_BRACKETS_SEPARATOR &&
+          !candidate.strip.empty? && candidate[/\A */].length < indentation
       end
       source_root_line = parent_line&.match?(/\A\S/) ? parent_line : nil
 

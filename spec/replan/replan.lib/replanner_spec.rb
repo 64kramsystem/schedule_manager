@@ -729,8 +729,36 @@ describe Replanner do
         assert_replan(test_content, expected_updated_content, exact: true)
       end
 
+      it 'carries a parent from before a separator into the child time block' do
+        test_content = <<~TXT
+            MON 20/SEP/2021
+        * personal care
+        -----
+          + 15:52. clip nails {{-6}} (replan p 6)
+        -----
+        -----
+        -----
+
+        TXT
+
+        expected_next_date_section = <<~TXT
+            SUN 26/SEP/2021
+        -----
+        * personal care
+          + clip nails {{-6}} (replan p 6)
+        -----
+        -----
+        -----
+
+        TXT
+
+        assert_replan(test_content, expected_next_date_section)
+      end
+
       {
         'an entry without a parent' => "- child (replan p 2)\n",
+        'an entry after a separator without a parent' => "-----\n  - child (replan p 2)\n-----\n-----\n-----\n",
+        'a child of a nested parent before a separator' => "* root\n  - parent\n-----\n    - child (replan p 2)\n-----\n-----\n-----\n",
         'a child of a nested parent' => "* root\n  - parent\n    - child (replan p 2)\n",
       }.each do |description, entries|
         it "rejects #{description}" do
