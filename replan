@@ -141,18 +141,15 @@ if __FILE__ == $PROGRAM_NAME
       raise "Day mode is only compatible with compare and debug options" if (options.keys - [:day, :compare]).any?
       raise "Invalid day: #{day.inspect}; expected YYYY-MM-DD" if !day.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      day = Date.iso8601(day)
       template_filename = TEMPLATE || configuration.template_filename&.full_path
       compare = !!options[:compare]
 
-      Replan.new.apply_template(schedule_filename, template_filename:, day:, compare:)
+      Replan.new.apply_template(schedule_filename, template_filename:, day: Date.iso8601(day), compare:)
     elsif !!export
       raise "Export mode is not compatible with other options" if options.size > 1
 
       archive_filename = configuration.archive_filename.full_path
-      export = Date.parse(export, '%F')
-
-      Replan.new.list(schedule_filename, archive_filename, event_symbols, export:)
+      Replan.new.list(schedule_filename, archive_filename, event_symbols, export: Date.parse(export, '%F'))
     elsif list
       raise "List mode is not compatible with other options" if options.size > 1
 
@@ -181,7 +178,10 @@ if __FILE__ == $PROGRAM_NAME
       raise error
     else
       puts "ERROR: #{error}"
-      exit 1
+      puts "Repair the file, then press Enter to retry (Ctrl+C to cancel)."
+      exit 1 if !$stdin.gets
+
+      retry
     end
   end
 end
