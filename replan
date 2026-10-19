@@ -17,6 +17,7 @@ require_relative "#{File.basename(__FILE__)}.lib/resnapper"
 require_relative "#{File.basename(__FILE__)}.lib/retemplater"
 require_relative "#{File.basename(__FILE__)}.lib/reworker"
 require_relative "#{File.basename(__FILE__)}.lib/remover"
+require_relative "#{File.basename(__FILE__)}.lib/replacer"
 
 # Merge program is used on update.
 MERGE_PROGRAM = ENV["SCRIPTING_MERGE_PROGRAM"]
@@ -64,6 +65,7 @@ class Replan
     original_content = IO.read(schedule_filename)
     content = ensure_trailing_blank_line(original_content)
     content = Retemplater.new(template_filename).execute(content, date: day)
+    content = Replacer.new.execute(content, dates: [day])
 
     conditional_save(content, original_content, schedule_filename, nil, compare:, archive_current_day: false)
   end
@@ -91,6 +93,7 @@ class Replan
 
     if !skips_only
       content = Retemplater.new(template_filename).execute(content) if template_filename
+      content = Replacer.new.execute(content)
       content = Reworker.new.execute(content)
 
       if Resnapper.snap_reference?(content)

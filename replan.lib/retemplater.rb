@@ -48,7 +48,7 @@ class Retemplater
       .concat(TIME_BRACKETS_SEPARATOR)
       .concat("\n")
 
-    content.sub(date_section, new_date_section)
+    content.sub(date_section) { new_date_section }
   end
 
   private

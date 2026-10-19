@@ -228,7 +228,7 @@ module ReplanHelper
 
     new_date_section = date_header + brackets.join(TIME_BRACKETS_SEPARATOR)
 
-    content.sub(old_date_section, new_date_section)
+    content.sub(old_date_section) { new_date_section }
   end
 
   # S and % events qualify the whole day, so top events go after any leading day qualifiers and

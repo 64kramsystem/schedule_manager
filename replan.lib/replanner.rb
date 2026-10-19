@@ -265,7 +265,7 @@ class Replanner
 
       # No-op if no changes have been performed (see conditional before change block).
       #
-      content = content.sub(current_date_section, edited_current_date_section)
+      content = content.sub(current_date_section) { edited_current_date_section }
     end
 
     content.gsub(MOVED_REPLAN_CHILD_MARKER, '')
