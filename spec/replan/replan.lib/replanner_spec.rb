@@ -28,6 +28,155 @@ end
 describe Replanner do
   include ReplannerSpecHelper
 
+  context 'destination hierarchy and merging' do
+    def hierarchy_schedule(source, destination)
+      sections = [['MON 20/SEP/2021', source], ['WED 22/SEP/2021', destination]]
+      sections.map do |date, entries|
+        "    #{date}\n#{entries.empty? ? '' : entries.rstrip + "\n"}#{"-----\n" * 4}\n"
+      end.join
+    end
+
+    [false, true].each do |grandparent_present|
+      [nil, ' (replan 30)', ' (replan)'].each do |parent_replan|
+        it "carries only the immediate parent with grandparent present=#{grandparent_present}, parent=#{parent_replan.inspect}" do
+          source = "* family\n  * projects\n    - work#{parent_replan}\n      - first (replan sp 2)\n      - second (replan sp 2)\n      - sibling"
+          target = grandparent_present ? "* family\n  * projects\n    - unrelated" : '* elsewhere'
+          carried = "- work#{parent_replan}\n  - first (replan p 2)\n  - second (replan p 2)"
+          expected_target = grandparent_present ? target + "\n" + carried.lines.map { |line| "    #{line}" }.join : target + "\n" + carried
+          expected_source = "* family\n  * projects\n    - work#{parent_replan}\n      - sibling"
+          assert_replan(hierarchy_schedule(source, target), hierarchy_schedule(expected_source, expected_target), exact: true, skips_only: true)
+        end
+      end
+    end
+
+    [' (replan 30)', ' (replan)', ''].each do |metadata|
+      it "reuses a nested destination parent without replacing its metadata #{metadata.inspect}" do
+        source = "* projects\n  - work (replan 7)\n    - task (replan sp 2)"
+        target = "* projects\n  - work#{metadata}\n    - existing"
+        expected = target + "\n    - task (replan p 2)"
+        assert_replan(hierarchy_schedule(source, target), hierarchy_schedule("* projects\n  - work (replan 7)", expected), exact: true, skips_only: true)
+      end
+    end
+
+    [false, true].each do |nested|
+      ['c', 'oc'].each do |flags|
+        it "merges #{flags} occurrences at nested=#{nested}, retaining both child subtrees" do
+          indent = nested ? '  ' : ''
+          context = nested ? "* projects\n" : ''
+          period = flags.include?('o') ? 'in 2' : '2'
+          source = context + "#{indent}- work (replan #{flags} #{period})\n#{indent}  - incoming\n#{indent}    - detail"
+          target = context + "#{indent}- work\n#{indent}  - existing"
+          expected_source = flags.include?('o') ? context.rstrip : context + "#{indent}- work\n#{indent}  - incoming\n#{indent}    - detail"
+          recurrence = flags.include?('o') ? '' : " (replan c 2)"
+          expected_target = context + "#{indent}- work#{recurrence}\n#{indent}  - existing\n#{indent}  - incoming\n#{indent}    - detail"
+          assert_replan(hierarchy_schedule(source, target), hierarchy_schedule(expected_source, expected_target), exact: true)
+        end
+      end
+    end
+
+    [' (replan 2)', ' (replan 30)', ' (replan)', ' (replan s 1)', ' (replan o in 1)'].each do |metadata|
+      it "rejects an initially replanned target #{metadata.inspect}" do
+        content = hierarchy_schedule('- work (replan 2)', "- work#{metadata}")
+        expect { subject.execute(content) }.to raise_error(/Destination already has a replan/)
+      end
+    end
+
+    ["- work\n- work", "* projects\n  - work\n  - work"].each do |target|
+      it "rejects ambiguous plain matches in #{target.inspect}" do
+        source = target.start_with?('*') ? "* projects\n  - work (replan 2)" : '- work (replan 2)'
+        expect { subject.execute(hierarchy_schedule(source, target)) }.to raise_error(/Ambiguous destination match/)
+      end
+    end
+
+    [['2', '3 in 2'], ['2', 'o in 2'], ['o in 2', '2']].each do |first, second|
+      it "rejects independent arrivals with recurrence #{first.inspect}, #{second.inspect}" do
+        # A next-date override makes differently spelled recurrences arrive together.
+        source = "- work (replan #{first})\n- work (replan #{second})"
+        expect { subject.execute(hierarchy_schedule(source, '')) }.to raise_error(/Conflicting scheduled occurrences/)
+      end
+    end
+
+    it 'coalesces two independent once-offs' do
+      source = "- work (replan o in 2)\n- work (replan o in 2)"
+      assert_replan(hierarchy_schedule(source, '- work'), hierarchy_schedule('', '- work'), exact: true)
+    end
+
+    it 'combines a copied parent with its independently scheduled occurrence' do
+      source = "* projects\n  - work (replan 2)\n    - task (replan sp 2)"
+      target = '* projects'
+      expected_source = "* projects\n  - work"
+      expected_target = "* projects\n  - work (replan 2)\n    - task (replan p 2)"
+      assert_replan(hierarchy_schedule(source, target), hierarchy_schedule(expected_source, expected_target), exact: true)
+    end
+
+    it 'copies an updated parent once using its finalized description' do
+      source = "- work (replan u 7)\n  - task (replan sp 2)"
+      expect_any_instance_of(InputHelper).to receive(:ask).once
+        .with('Enter the new description:', prefill: 'work').and_return('updated work')
+      content = hierarchy_schedule(source, '')
+      result = nil
+      Timecop.freeze(ReplannerSpecHelper::CURRENT_DATE) { result = subject.execute(content) }
+      expect(result).to eq(hierarchy_schedule('- updated work', "- updated work (replan u 7)\n  - task (replan p 2)") + "    MON 27/SEP/2021\n- updated work (replan u 7)\n#{"-----\n" * 4}\n")
+    end
+
+    ['s 1', 'o in 1', 'U 1'].each do |metadata|
+      it "does not execute a copied ancestor with #{metadata} on an existing future date" do
+        source = "- work (replan #{metadata})\n  - task (replan sp 2)"
+        expect_any_instance_of(InputHelper).not_to receive(:ask)
+        expected_source = "- work (replan #{metadata})"
+        expected_target = "- work (replan #{metadata})\n  - task (replan p 2)"
+        assert_replan(hierarchy_schedule(source, ''), hierarchy_schedule(expected_source, expected_target), exact: true, skips_only: true) if metadata.start_with?('U')
+        next if metadata.start_with?('U')
+        # This source is on a future date, so an ordinary child can only be moved via s.
+        content = "    SUN 19/SEP/2021\n\n" + hierarchy_schedule(source, '')
+        result = subject.execute(content)
+        expect(result.scan("- work (replan #{metadata})").length).to eq(1)
+        expect(result).to include(expected_target)
+        expect(result).not_to include('THU 23/SEP/2021')
+      end
+    end
+
+    it 'rejects a destination grandparent with replan metadata' do
+      source = "* projects\n  - work\n    - task (replan sp 2)"
+      expect { subject.execute(hierarchy_schedule(source, '* projects (replan 30)')) }
+        .to raise_error(/destination ancestor has its own replan/)
+    end
+
+    it 'keeps carried child order when two once-offs merge into one target' do
+      source = "- work (replan oc in 2)\n  - first\n- work (replan oc in 2)\n  - second"
+      target = "- work\n  - existing"
+      expected_target = target + "\n  - first\n  - second"
+      assert_replan(hierarchy_schedule(source, target), hierarchy_schedule('', expected_target), exact: true)
+    end
+
+    it 'attaches a later source date child to an independently scheduled parent' do
+      content = "    MON 20/SEP/2021\n- work (replan 2)\n\n    TUE 21/SEP/2021\n- work (replan 30)\n  - task (replan sp 1)\n\n"
+      expected = "    MON 20/SEP/2021\n- work\n\n    TUE 21/SEP/2021\n- work (replan 30)\n\n    WED 22/SEP/2021\n- work (replan 2)\n  - task (replan p 1)\n#{"-----\n" * 4}\n"
+      assert_replan(content, expected, exact: true)
+    end
+
+    [['2', 'o in 1'], ['o in 2', 's 1']].each do |first, second|
+      it "rejects recurring and once-off arrivals across source dates with #{first} first" do
+        content = "    MON 20/SEP/2021\n- work (replan #{first})\n\n    TUE 21/SEP/2021\n- work (replan #{second})\n\n"
+        expect { subject.execute(content) }.to raise_error(/Conflicting scheduled occurrences/)
+      end
+    end
+
+    it 'merges after removing time and applying interpolations' do
+      source = '- 9:30. work {{mon/19}} (replan 2)'
+      target = "- work {{mon/20}}\n  - existing"
+      expected = "- work {{mon/20}} (replan 2)\n  - existing"
+      assert_replan(hierarchy_schedule(source, target), hierarchy_schedule('- 9:30. work {{mon/19}}', expected), exact: true)
+    end
+
+    it 'does not merge events with a different timestamp or ancestry' do
+      source = "* projects\n  - work (replan 2)"
+      target = "* elsewhere\n  - work\n* projects\n  - 9:30. work"
+      expected_target = target + "\n  - work (replan 2)"
+      assert_replan(hierarchy_schedule(source, target), hierarchy_schedule("* projects\n  - work", expected_target), exact: true)
+    end
+  end
+
   context "Events" do
     it "moves replan children with a skipped c parent" do
       test_content = <<~TXT
@@ -758,25 +907,24 @@ describe Replanner do
       {
         'an entry without a parent' => "- child (replan p 2)\n",
         'an entry after a separator without a parent' => "-----\n  - child (replan p 2)\n-----\n-----\n-----\n",
-        'a child of a nested parent before a separator' => "* root\n  - parent\n-----\n    - child (replan p 2)\n-----\n-----\n-----\n",
-        'a child of a nested parent' => "* root\n  - parent\n    - child (replan p 2)\n",
       }.each do |description, entries|
         it "rejects #{description}" do
           content = "    MON 20/SEP/2021\n#{entries}\n"
-          expect { subject.execute(content) }.to raise_error(/Parent-carry entry requires a direct root parent/)
+          expect { subject.execute(content) }.to raise_error(/Parent-carry entry requires a parent/)
         end
       end
 
-      it 'rejects a parent with its own replan before prompting for updates' do
+      it 'rejects a grandparent with its own replan before prompting for updates' do
         test_content = <<~TXT
             MON 20/SEP/2021
-        * movies (replan U 7)
-          - download (replan p 2)
+        * collection (replan U 7)
+          * movies
+            - download (replan p 2)
 
         TXT
 
         expect_any_instance_of(InputHelper).not_to receive(:ask)
-        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry has a parent with its own replan/)
+        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry has an ancestor above its parent with its own replan/)
       end
 
       it 'validates p introduced by a full update' do
@@ -791,7 +939,7 @@ describe Replanner do
           .with('Enter the new description:', prefill: 'download (replan U 2)')
           .and_return('download (replan Up 2)')
 
-        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry requires a direct root parent/)
+        expect { subject.execute(test_content) }.to raise_error(/Parent-carry entry requires a parent/)
       end
     end
 
