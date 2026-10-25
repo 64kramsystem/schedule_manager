@@ -227,13 +227,16 @@ class Replanner
   end
 
   # Parent identities ignore replan metadata. Event identities otherwise retain exact text,
-  # including timestamps and comments; only copied parents lose their timestamp.
+  # including timestamps and comments; copied parents lose their timestamp and comment.
   def event_identity(line)
     remove_replan(line).strip
   end
 
   def copied_parent_line(line)
-    line.lstrip.sub(/\A(. )\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\. /, '\\1')
+    line.lstrip
+      .sub(/\A(. )\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\. /, '\\1')
+      .sub(/ #.*$/, '')
+      .rstrip
   end
 
   def child_indices(lines, parent_i = nil)

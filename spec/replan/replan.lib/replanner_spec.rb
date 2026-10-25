@@ -49,6 +49,20 @@ describe Replanner do
       end
     end
 
+    [false, true].each do |parent_present|
+      it "omits copied parent comments with destination parent present=#{parent_present}" do
+        source = "* projects\n  - 9:30. bar # foo\n    - first (replan sp 2)\n    - second (replan sp 2)"
+        target = "* projects"
+        target += "\n  - bar\n    - existing" if parent_present
+        expected_target = parent_present ? target : target + "\n  - bar"
+        expected_target += "\n    - first (replan p 2)\n    - second (replan p 2)"
+
+        assert_replan(hierarchy_schedule(source, target),
+          hierarchy_schedule("* projects\n  - 9:30. bar # foo", expected_target),
+          exact: true, skips_only: true)
+      end
+    end
+
     [' (replan 30)', ' (replan)', ''].each do |metadata|
       it "reuses a nested destination parent without replacing its metadata #{metadata.inspect}" do
         source = "* projects\n  - work (replan 7)\n    - task (replan sp 2)"
