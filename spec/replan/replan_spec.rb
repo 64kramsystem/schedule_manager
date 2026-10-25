@@ -76,7 +76,7 @@ describe Replan do
 
   describe 'export error reporting' do
     it 'shows errors and the retry prompt on stderr before waiting for input' do
-      File.write(schedule_filename, current_day + "- misplaced task\n")
+      File.write(schedule_filename, current_day.sub('- daily task', "-----\n- daily task"))
       File.write(archive_filename, '')
       config_filename = File.join(@directory, '.replan')
       File.write(config_filename, "schedule_filename=#{schedule_filename}\narchive_filename=#{archive_filename}\nevent_symbols=*PS%&\n")
@@ -94,7 +94,7 @@ describe Replan do
       Open3.popen3(*command) do |stdin, stdout, stderr, process|
         begin
           expect(IO.select([stderr], nil, nil, 5)).not_to be_nil
-          expect(stderr.gets).to include('ERROR:', 'not a correct date header', '- misplaced task')
+          expect(stderr.gets).to include('ERROR:', 'too many separators')
           expect(stderr.gets).to eq("Repair the file, then press Enter to retry (Ctrl+C to cancel).\n")
           expect(process).to be_alive
         ensure
@@ -107,7 +107,29 @@ describe Replan do
     end
   end
 
+  describe '#list' do
+    it 'exports events after temporary blank lines without rewriting the schedule' do
+      content = current_day.sub('- work 2h', "\n* visible event\n\n- work 2h")
+      File.write(schedule_filename, content)
+      File.write(archive_filename, '')
+
+      expect {
+        subject.list(schedule_filename, archive_filename, '*', export: Date.new(2021, 9, 20))
+      }.to output(JSON.pretty_generate([{date: '2021-09-20', title: 'visible event', type: '*'}])).to_stdout
+
+      expect(File.read(schedule_filename)).to eq(content)
+    end
+  end
+
   describe '#apply_template' do
+    it 'ignores temporary blank lines in the selected date' do
+      File.write(schedule_filename, schedule.sub('- existing selected day', "\n- existing selected day"))
+
+      subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
+
+      expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- template task\n- existing selected day"))
+    end
+
     it "preserves escaped matchers and literal backreferences through template insertion" do
       content = schedule.sub('- existing selected day', %q{- it's ready})
       replacement_template = template.sub('-^ template task') { %q{- {{replace 'it\'s ready'}} \0 \& \\'} }
@@ -214,6 +236,15 @@ describe Replan do
         -----
 
       TXT
+    end
+
+    it 'processes all tasks and archives the current day despite temporary blank lines' do
+      File.write(schedule_filename, schedule.sub('- work 2h', "\n\n- work 2h"))
+
+      subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
+
+      expect(File.read(schedule_filename)).to eq(processed_next_day + selected_day)
+      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
     end
 
     it "preserves literal backreferences in replacements throughout replanning" do

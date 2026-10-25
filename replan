@@ -64,6 +64,7 @@ class Replan
 
     original_content = IO.read(schedule_filename)
     content = ensure_trailing_blank_line(original_content)
+    content = Cleaner.new.execute(content)
     content = Retemplater.new(template_filename).execute(content, date: day)
     content = Replacer.new.execute(content, dates: [day])
 
