@@ -1,6 +1,8 @@
 require 'rspec'
 require 'tmpdir'
 require 'timecop'
+require 'open3'
+require 'rbconfig'
 
 load File.expand_path('../../replan', __dir__)
 
@@ -70,6 +72,39 @@ describe Replan do
     File.write(archive_filename, "Existing archive\n")
     File.write(template_filename, template)
     stub_const('Readder::DEFAULT_DAYS_TO_ADD', 2)
+  end
+
+  describe 'export error reporting' do
+    it 'shows errors and the retry prompt on stderr before waiting for input' do
+      File.write(schedule_filename, current_day + "- misplaced task\n")
+      File.write(archive_filename, '')
+      config_filename = File.join(@directory, '.replan')
+      File.write(config_filename, "schedule_filename=#{schedule_filename}\narchive_filename=#{archive_filename}\nevent_symbols=*PS%&\n")
+      bootstrap = <<~RUBY
+        require 'simple_scripting/configuration'
+        require 'timecop'
+        Timecop.freeze(Date.new(2021, 9, 21))
+        config_filename = ARGV.shift
+        SimpleScripting::Configuration.define_singleton_method(:default_config_file) { config_filename }
+        $PROGRAM_NAME = ARGV.shift
+        load $PROGRAM_NAME
+      RUBY
+      command = [RbConfig.ruby, '-e', bootstrap, config_filename, File.expand_path('../../replan', __dir__), '-x', '2021-09-20']
+
+      Open3.popen3(*command) do |stdin, stdout, stderr, process|
+        begin
+          expect(IO.select([stderr], nil, nil, 5)).not_to be_nil
+          expect(stderr.gets).to include('ERROR:', 'not a correct date header', '- misplaced task')
+          expect(stderr.gets).to eq("Repair the file, then press Enter to retry (Ctrl+C to cancel).\n")
+          expect(process).to be_alive
+        ensure
+          stdin.close
+        end
+
+        expect(stdout.read).to eq('')
+        expect(process.value.exitstatus).to eq(1)
+      end
+    end
   end
 
   describe '#apply_template' do

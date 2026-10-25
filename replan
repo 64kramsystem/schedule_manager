@@ -180,8 +180,8 @@ if __FILE__ == $PROGRAM_NAME
     if debug
       raise error
     else
-      puts "ERROR: #{error}"
-      puts "Repair the file, then press Enter to retry (Ctrl+C to cancel)."
+      warn "ERROR: #{error}"
+      warn "Repair the file, then press Enter to retry (Ctrl+C to cancel)."
       exit 1 if !$stdin.gets
 
       retry
