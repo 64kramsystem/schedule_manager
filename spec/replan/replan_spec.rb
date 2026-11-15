@@ -238,6 +238,15 @@ describe Replan do
       TXT
     end
 
+    it 'expands references from the templates directory when the daily template is disabled' do
+      File.write(File.join(@directory, 'tasks.txt'), "+ first\n  - nested\n")
+      File.write(schedule_filename, schedule.sub('- existing next day', '- {{@tasks}}'))
+
+      subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
+
+      expect(File.read(schedule_filename)).to include("- {{@tasks}}\n  + first\n    - nested\n")
+    end
+
     it 'processes all tasks and archives the current day despite temporary blank lines' do
       File.write(schedule_filename, schedule.sub('- work 2h', "\n\n- work 2h"))
 

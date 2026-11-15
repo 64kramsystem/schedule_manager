@@ -2,17 +2,13 @@ require 'English'
 
 require_relative 'replan_codec'
 
-# Copy children from snap-file sections into matching schedule placeholders.
+# Copy children from template files into matching schedule placeholders.
 #
 class Resnapper
   SNAP_REFERENCE_REGEX = /\{\{@(.+?)\}\}/
-  SNAP_SECTION_HEADER_REGEX = /^## (.+)$/
 
-  # snap: String (filename) or IO (content).
-  #
-  def initialize(snap)
-    @snap = snap.respond_to?(:read) ? snap.read : IO.read(snap)
-    @sections = parse_sections
+  def initialize(templates_directory)
+    @templates_directory = templates_directory
     @replan_codec = ReplanCodec.new
   end
 
@@ -44,26 +40,6 @@ class Resnapper
 
   private
 
-  def parse_sections
-    sections = {}
-    section_name = nil
-    section_lines = []
-
-    @snap.each_line(chomp: true) do |line|
-      if line =~ SNAP_SECTION_HEADER_REGEX
-        sections[section_name] = strip_blank_lines(section_lines) if section_name
-        section_name = $LAST_MATCH_INFO[1]
-        section_lines = []
-      elsif section_name
-        section_lines << line
-      end
-    end
-
-    sections[section_name] = strip_blank_lines(section_lines) if section_name
-
-    sections
-  end
-
   def strip_blank_lines(lines)
     lines = lines.dup
 
@@ -88,7 +64,12 @@ class Resnapper
   end
 
   def indented_children(reference, line)
-    children = @sections[reference] || raise("Snap section not found: #{reference}")
+    raise "Invalid template reference: #{reference}" if reference.include?('/') || reference == '.' || reference == '..'
+
+    filename = File.join(@templates_directory, "#{reference}.txt")
+    raise "Template file not found: #{filename}" unless File.file?(filename)
+
+    children = strip_blank_lines(IO.readlines(filename, chomp: true))
     child_indentation = indentation(line) + '  '
 
     children.map do |child|
