@@ -28,6 +28,34 @@ describe Retemplater do
     TXT
   }
 
+  describe 'environment variables in templates' do
+    let(:source_content) { current_day + "\n    SUN 11/JUL/2021\n- existing ${FESTIVAL}\n" + "-----\n" * 4 + "\n" }
+
+    it 'expands template placeholders and preserves existing schedule text' do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with('FESTIVAL', '${FESTIVAL}').and_return('spring-swing')
+      allow(ENV).to receive(:fetch).with('X', '${X}').and_return('')
+      template = '- ${FESTIVAL} (a${X}b)' + "\n" + "-----\n" * 4
+
+      actual_content = described_class.new(StringIO.new(template)).execute(source_content)
+
+      expect(actual_content).to eq(source_content.sub('- existing ${FESTIVAL}', "- existing \${FESTIVAL}\n- spring-swing (ab)"))
+    end
+
+    it 'keeps unset placeholders and invalid variable names as literal text' do
+      unset_name = 'SCHEDULE_MANAGER_TEST_UNSET'
+      previous_value = ENV.delete(unset_name)
+      line = '- ${SCHEDULE_MANAGER_TEST_UNSET} ${2VAR}'
+      template = line + "\n" + "-----\n" * 4
+
+      actual_content = described_class.new(StringIO.new(template)).execute(source_content)
+
+      expect(actual_content).to eq(source_content.sub('- existing ${FESTIVAL}') { |existing| "#{existing}\n#{line}" })
+    ensure
+      ENV[unset_name] = previous_value
+    end
+  end
+
   it "Should fill the next day with the template" do
     source_content = <<~TXT
       #{current_day}

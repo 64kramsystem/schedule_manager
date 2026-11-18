@@ -34,6 +34,7 @@ class Retemplater
     date_time_brackets += [''] * missing_brackets
 
     template_time_brackets = @template
+      .gsub(/\$\{([a-z_]\w*)\}/i) { |placeholder| ENV.fetch(Regexp.last_match(1), placeholder) }
       .split(/^#{TIME_BRACKETS_SEPARATOR}/, -1)
       .slice(0..-2)
 
