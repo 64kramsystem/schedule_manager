@@ -237,7 +237,33 @@ describe Replan do
 
       subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
 
-      expect(File.read(schedule_filename)).to include("- {{@tasks}}\n  + first\n    - nested\n")
+      expect(File.read(schedule_filename)).to include("- tasks\n  + first\n    - nested\n")
+    end
+
+    ['', '-'].each do |suffix|
+      it "archives the expanded {{@tasks#{suffix}}} occurrence and replans the reference" do
+        reference = "+ {{@tasks#{suffix}}} (replan p tue)"
+        File.write(File.join(@directory, 'tasks.txt'), "+ first\n  - nested\n")
+        File.write(schedule_filename, schedule.sub('- work 2h', "- weekly tasks\n  #{reference}\n- work 2h"))
+
+        subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
+
+        archived_tasks = suffix.empty? ? "  + tasks\n    + first\n      - nested\n" : "  + first\n    - nested\n"
+        expected_archived_day = archived_day.sub('- work 2h', "- weekly tasks\n#{archived_tasks}- work 2h")
+        expected_next_day = processed_next_day.sub("-----\n", "- weekly tasks\n  #{reference}\n-----\n")
+        expect(File.read(archive_filename)).to eq(expected_archived_day + "Existing archive\n")
+        expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
+      end
+    end
+
+    it 'replans tasks imported while expanding the current occurrence' do
+      File.write(File.join(@directory, 'tasks.txt'), "+ imported task (replan 1)\n")
+      File.write(schedule_filename, schedule.sub('- work 2h', "- weekly tasks\n  + {{@tasks-}} (replan p tue)\n- work 2h"))
+
+      subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
+
+      expect(File.read(archive_filename)).to include("- weekly tasks\n  + imported task\n")
+      expect(File.read(schedule_filename)).to include("- weekly tasks\n  + {{@tasks-}} (replan p tue)\n  + imported task (replan 1)\n")
     end
 
     it 'processes all tasks and archives the current day despite temporary blank lines' do

@@ -101,11 +101,23 @@ class Replan
       content = Reworker.new.execute(content)
 
       if Resnapper.snap_reference?(content)
-        content = Resnapper.new(templates_directory).execute(content)
+        resnapper = Resnapper.new(templates_directory)
+        content = resnapper.execute(content)
       end
     end
 
-    content = Replanner.new.execute(content, debug:, skips_only:)
+    replanner = Replanner.new
+    content = replanner.execute(content, debug:, skips_only:)
+
+    if resnapper
+      current_section = find_date_section(content, find_first_date(content))
+      # Replanner has consumed the current replan rules and kept the future references.
+      expanded_section = resnapper.execute(current_section)
+      if expanded_section != current_section
+        content = content.sub(current_section) { expanded_section }
+        content = replanner.execute(content, debug:) if expanded_section.include?('(replan')
+      end
+    end
 
     conditional_save(content, original_content, schedule_filename, archive_filename, compare:, archive_current_day: !skips_only)
   end

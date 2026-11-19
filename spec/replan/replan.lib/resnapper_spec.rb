@@ -26,7 +26,7 @@ describe Resnapper do
     expected_content = <<~TXT
           MON 20/SEP/2021
       -----
-      - {{@section A}}
+      - section A
         + foo
         + bar
           * bar.1
@@ -41,7 +41,7 @@ describe Resnapper do
     expect(actual_content).to eql(expected_content)
   end
 
-  it "Should skip references that already have children" do
+  it "appends template entries after existing children" do
     source_content = <<~TXT
           MON 20/SEP/2021
       -----
@@ -52,12 +52,15 @@ describe Resnapper do
       -----
     TXT
 
-    actual_content = described_class.new(@templates_directory).execute(source_content)
+    expected_content = source_content.sub(
+      "- {{@section A}}\n  + already present",
+      "- section A\n  + already present\n  + foo\n  + bar\n    * bar.1\n    + bar.2",
+    )
 
-    expect(actual_content).to eql(source_content)
+    expect(described_class.new(@templates_directory).execute(source_content)).to eq(expected_content)
   end
 
-  it "does not insert children for skip or once references without a current occurrence" do
+  it "leaves references with replan rules available for replanning" do
     source_content = <<~TXT
         MON 20/SEP/2021
     - 09:50. work
@@ -65,6 +68,7 @@ describe Resnapper do
       % 12:00. olga (replan f10:00 tue in 2w)
         - olga child
       + {{@section B}} (replan o wed)
+      + {{@section A-}} (replan p tue)
     TXT
 
     actual_content = described_class.new(@templates_directory).execute(source_content)
@@ -91,7 +95,7 @@ describe Resnapper do
 
     expected_content = <<~TXT
           MON 20/SEP/2021
-      - {{@section A}}
+      - section A
         + foo
         + bar
           * bar.1
@@ -104,7 +108,7 @@ describe Resnapper do
           TUE 21/SEP/2021
       -----
       -----
-        - {{@section B}}
+        - section B
           o baz
           - qux
       -----
@@ -140,7 +144,7 @@ describe Resnapper do
     expected_content = <<~TXT
           MON 20/SEP/2021
       -----
-          - {{@section A}}
+          - section A
             + foo
             + bar
               * bar.1
@@ -153,5 +157,40 @@ describe Resnapper do
     actual_content = described_class.new(@templates_directory).execute(source_content)
 
     expect(actual_content).to eql(expected_content)
+  end
+
+  it "replaces a trailing-hyphen reference with its existing and imported children at the same level" do
+    source_content = <<~TXT
+          MON 20/SEP/2021
+      - parent
+        + {{@section A-}}
+          + already present
+            - {{@section B}}
+        + following sibling
+      -----
+      -----
+      -----
+      -----
+    TXT
+
+    expected_content = <<~TXT
+          MON 20/SEP/2021
+      - parent
+        + already present
+          - section B
+            o baz
+            - qux
+        + foo
+        + bar
+          * bar.1
+          + bar.2
+        + following sibling
+      -----
+      -----
+      -----
+      -----
+    TXT
+
+    expect(described_class.new(@templates_directory).execute(source_content)).to eq(expected_content)
   end
 end # describe Resnapper
