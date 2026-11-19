@@ -198,6 +198,12 @@ describe Replan do
   end
 
   describe '#update' do
+    let(:daily_template_filename) { File.join(@directory, '__daily.txt') }
+
+    before do
+      File.write(daily_template_filename, '')
+    end
+
     let(:processed_next_day) do
       <<~TXT
             TUE 21/SEP/2021
@@ -225,7 +231,7 @@ describe Replan do
       TXT
     end
 
-    it 'expands references from the templates directory when the daily template is disabled' do
+    it 'expands references from the templates directory when the selected template is disabled' do
       File.write(File.join(@directory, 'tasks.txt'), "+ first\n  - nested\n")
       File.write(schedule_filename, schedule.sub('- existing next day', '- {{@tasks}}'))
 
@@ -237,7 +243,7 @@ describe Replan do
     it 'processes all tasks and archives the current day despite temporary blank lines' do
       File.write(schedule_filename, schedule.sub('- work 2h', "\n\n- work 2h"))
 
-      subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
+      subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
 
       expect(File.read(schedule_filename)).to eq(processed_next_day + selected_day)
       expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
@@ -247,7 +253,7 @@ describe Replan do
       task = %q{repla\n \0 \&}
       File.write(schedule_filename, schedule.sub('daily task') { task })
 
-      subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
+      subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
 
       expected_next_day = processed_next_day.sub('daily task') { task }
       expected_archived_day = archived_day.sub('daily task') { task }
@@ -255,27 +261,53 @@ describe Replan do
       expect(File.read(archive_filename)).to eq(expected_archived_day + "Existing archive\n")
     end
 
-    it "processes and archives the current day without applying a template" do
-      subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
+    it "applies __daily.txt and archives the current day when the selected template is disabled" do
+      File.write(daily_template_filename, "- existing next day\n  - daily child\n")
 
-      expect(File.read(schedule_filename)).to eq(processed_next_day + selected_day)
-      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
-    end
+      subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
 
-    it "still applies the template during a normal update" do
-      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
-
-      expected_next_day = processed_next_day.sub('- daily task', "- template task\n- daily task")
+      expected_next_day = processed_next_day.sub('- existing next day', "- existing next day\n  - daily child")
       expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
       expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
     end
 
-    it "still requires a work-hour marker when no template is applied" do
+    it "merges __daily.txt after the selected template supplies its parent" do
+      File.write(daily_template_filename, "- template task|missing\n  - daily child\n")
+
+      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
+
+      expected_next_day = processed_next_day.sub('- daily task', "- template task\n  - daily child\n- daily task")
+      expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
+      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
+    end
+
+    it 'merges __daily.txt once when it is the selected template' do
+      File.write(daily_template_filename, "- existing next day\n  - daily child\n")
+      selected_template = File.join(@directory, './__daily.txt')
+
+      subject.update(schedule_filename, archive_filename, template_filename: selected_template, templates_directory: @directory, compare: false, skips_only: false, debug: false)
+
+      expected_next_day = processed_next_day.sub('- existing next day', "- existing next day\n  - daily child")
+      expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
+    end
+
+    it 'stops before saving if __daily.txt is missing' do
+      File.delete(daily_template_filename)
+
+      expect {
+        subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
+      }.to raise_error(Errno::ENOENT, /__daily\.txt/)
+
+      expect(File.read(schedule_filename)).to eq(schedule)
+      expect(File.read(archive_filename)).to eq("Existing archive\n")
+    end
+
+    it "still requires a work-hour marker when the selected template is disabled" do
       schedule_without_marker = schedule.sub("#LPIM_REPLACE\n", '')
       File.write(schedule_filename, schedule_without_marker)
 
       expect {
-        subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
+        subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)
       }.to raise_error('No replacement or insertion point found!')
 
       expect(File.read(schedule_filename)).to eq(schedule_without_marker)
@@ -284,8 +316,9 @@ describe Replan do
 
     it "keeps skips-only updates from archiving the current day" do
       File.write(schedule_filename, schedule.sub('(replan 1)', '(replan s 1)'))
+      File.write(daily_template_filename, "- existing next day\n  - daily child\n")
 
-      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: true, debug: false)
+      subject.update(schedule_filename, archive_filename, template_filename:, templates_directory: @directory, compare: false, skips_only: true, debug: false)
 
       expected_current_day = current_day.sub("- daily task (replan 1)\n", '')
       expected_next_day = next_day.sub("-----\n", "- daily task (replan 1)\n-----\n")

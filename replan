@@ -91,12 +91,16 @@ class Replan
     content = Readder.new.execute(content)
 
     if !skips_only
-      content = Retemplater.new(template_filename).execute(content) if template_filename
+      templates_directory ||= File.dirname(template_filename) if template_filename
+      raise "A templates directory is required to apply __daily.txt" unless templates_directory
+
+      daily_template = File.join(templates_directory, '__daily.txt')
+      templates = [template_filename, daily_template].compact.uniq { |filename| File.expand_path(filename) }
+      templates.each { |filename| content = Retemplater.new(filename).execute(content) }
+
       content = Reworker.new.execute(content)
 
       if Resnapper.snap_reference?(content)
-        raise "templates_directory is required when schedule contains {{@...}} references" if !templates_directory
-
         content = Resnapper.new(templates_directory).execute(content)
       end
     end
@@ -114,7 +118,7 @@ if __FILE__ == $PROGRAM_NAME
     [ "-D", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
     [ "-d", "--day DAY",       "Apply the template to DAY (YYYY-MM-DD) without processing the current day" ],
-    [ "-t", "--no-template",   "Process the current day without applying the template to the next day" ],
+    [ "-t", "--no-template",   "Skip the selected next-day template and still apply __daily.txt" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
     [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
     [ "-s", "--skips-only",    "Only move skips/once-offs"],
@@ -166,8 +170,10 @@ if __FILE__ == $PROGRAM_NAME
         puts "Work hours: #{work_hours}"
       else
         archive_filename = configuration.archive_filename.full_path
-        template_filename = (TEMPLATE || configuration.template_filename&.full_path) unless options.key?(:no_template)
-        templates_directory = File.dirname(configuration.template_filename.full_path) if configuration.template_filename
+        configured_template = configuration.template_filename&.full_path
+        template_filename = (TEMPLATE || configured_template) unless options.key?(:no_template)
+        directory_template = configured_template || TEMPLATE
+        templates_directory = File.dirname(directory_template) if directory_template
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
 
