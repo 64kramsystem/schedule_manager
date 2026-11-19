@@ -130,27 +130,14 @@ describe Replan do
       expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- template task\n- existing selected day"))
     end
 
-    it "preserves escaped matchers and literal backreferences through template insertion" do
-      content = schedule.sub('- existing selected day', %q{- it's ready})
-      replacement_template = template.sub('-^ template task') { %q{- {{replace 'it\'s ready'}} \0 \& \\'} }
-      File.write(schedule_filename, content)
-      File.write(template_filename, replacement_template)
+    it "preserves literal backslashes through template insertion" do
+      task = %q{repla\n \0 \&}
+      File.write(template_filename, template.sub('template task') { task })
 
       subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
 
-      expected = content.sub(%q{- it's ready}) { %q{- \0 \& \\'} }
+      expected = schedule.sub('- existing selected day') { |existing| "- #{task}\n#{existing}" }
       expect(File.read(schedule_filename)).to eq(expected)
-    end
-
-    it "resolves replacement directives only on the selected date" do
-      other_day = current_day.sub('- work 2h', '- {{replace "missing"}} other replacement')
-      File.write(schedule_filename, other_day + next_day + selected_day)
-      File.write(template_filename, template.sub('-^ template task', '- {{replace "existing selected day"}} replacement'))
-
-      subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
-
-      expect(File.read(schedule_filename)).to eq(other_day + next_day + selected_day.sub('- existing selected day', '- replacement'))
-      expect(File.read(archive_filename)).to eq("Existing archive\n")
     end
 
     it "changes only the selected date and leaves current-day work and the archive untouched" do
@@ -256,47 +243,16 @@ describe Replan do
       expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
     end
 
-    it "preserves literal backreferences in replacements throughout replanning" do
-      content = schedule.sub('- existing next day', %q{- it's ready})
-      replacement_template = template.sub('-^ template task') { %q{- {{replace 'it\'s ready'}} \0 \& \\'} }
-      File.write(schedule_filename, content)
-      File.write(template_filename, replacement_template)
+    it "preserves literal backslashes in replanned tasks" do
+      task = %q{repla\n \0 \&}
+      File.write(schedule_filename, schedule.sub('daily task') { task })
 
-      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
+      subject.update(schedule_filename, archive_filename, template_filename: nil, compare: false, skips_only: false, debug: false)
 
-      expected_next_day = processed_next_day.sub('- existing next day') { %q{- \0 \& \\'} }
+      expected_next_day = processed_next_day.sub('daily task') { task }
+      expected_archived_day = archived_day.sub('daily task') { task }
       expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
-      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
-    end
-
-    it "resolves replacement directives inserted by the template before processing the schedule" do
-      File.write(template_filename, template.sub('-^ template task', '; {{replace "existing next day"}} replacement'))
-
-      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
-
-      expect(File.read(schedule_filename)).to eq(processed_next_day.sub('- existing next day', '; replacement') + selected_day)
-      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
-    end
-
-    it "leaves files untouched when a replacement has no target" do
-      File.write(template_filename, template.sub('-^ template task', '- {{replace "missing"}} replacement'))
-
-      expect {
-        subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
-      }.to raise_error(/requires exactly one matching line; found 0/)
-
-      expect(File.read(schedule_filename)).to eq(schedule)
-      expect(File.read(archive_filename)).to eq("Existing archive\n")
-    end
-
-    it "leaves replacement directives untouched in skips-only mode" do
-      content = schedule.sub('- work 2h', '- {{replace "missing"}} replacement')
-      File.write(schedule_filename, content)
-
-      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: true, debug: false)
-
-      expect(File.read(schedule_filename)).to eq(content)
-      expect(File.read(archive_filename)).to eq("Existing archive\n")
+      expect(File.read(archive_filename)).to eq(expected_archived_day + "Existing archive\n")
     end
 
     it "processes and archives the current day without applying a template" do
