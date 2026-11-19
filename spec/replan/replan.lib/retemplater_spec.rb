@@ -134,7 +134,7 @@ describe Retemplater do
     expect(actual_content).to eq(current_day + "\n" + next_day + expected_day)
   end
 
-  it "adds children of matching top-level entries to the existing entry in the same time bracket" do
+  it "merges matching parents across the day and places new entries in their template bracket" do
     source_content = <<~TXT
       #{current_day}
 
@@ -162,6 +162,7 @@ describe Retemplater do
       - other entry
       - shared entry
         - child in another bracket
+      - new entry in the second bracket
       -----
       -----
       -----
@@ -178,12 +179,12 @@ describe Retemplater do
         - template child
           - template grandchild
         - repeated child
+        - child in another bracket
       - following existing entry
       - following template entry
       -----
       - other entry
-      - shared entry
-        - child in another bracket
+      - new entry in the second bracket
       -----
       -----
       -----
@@ -270,6 +271,101 @@ describe Retemplater do
     actual_content = described_class.new(StringIO.new(matching_template)).execute(source_content)
 
     expect(actual_content).to eql(expected_content)
+  end
+
+  describe 'alternative template parents' do
+    let(:source_content) do
+      current_day + "\n    SUN 11/JUL/2021\n#{morning}-----\n#{noon}-----\n-----\n-----\n\n"
+    end
+    let(:noon) { '' }
+    let(:matching_template) { "- foo|bar\n  - template child\n" + "-----\n" * 4 }
+
+    subject(:retemplater) { described_class.new(StringIO.new(matching_template)) }
+
+    context 'when more than one alternative matches' do
+      let(:morning) { "+ foo\n- 09:00. bar # booked\n  - existing child\n" }
+      let(:noon) { "- foo\n" }
+      let(:matching_template) { "-----\n- foo|bar\n  - template child\n" + "-----\n" * 3 }
+
+      it 'merges into the first matching parent in schedule order' do
+        expected = source_content.sub('  - existing child', "  - existing child\n  - template child")
+
+        expect(retemplater.execute(source_content)).to eq(expected)
+      end
+    end
+
+    context 'when only the second alternative matches in another bracket' do
+      let(:morning) { '' }
+      let(:noon) { "- bar\n" }
+
+      it 'merges the template children into that parent' do
+        expected = source_content.sub('- bar', "- bar\n  - template child")
+
+        expect(retemplater.execute(source_content)).to eq(expected)
+      end
+    end
+
+    context 'when neither alternative matches a top-level parent on the day' do
+      let(:morning) { "+ foo\n- another parent\n  - bar\n" }
+
+      it 'raises an error identifying the template parent' do
+        expect { retemplater.execute(source_content) }
+          .to raise_error('No matching parent on the selected day for "- foo|bar"')
+      end
+    end
+
+    context 'when a pipe occurs in a command or comment' do
+      let(:morning) { "- foo\n" }
+      let(:matching_template) { "- foo # bar|baz\n  - template child\n; echo foo | cat\n" + "-----\n" * 4 }
+
+      it 'preserves the command and matches the parent without its comment' do
+        expected = source_content.sub('- foo', "- foo\n  - template child\n; echo foo | cat")
+
+        expect(retemplater.execute(source_content)).to eq(expected)
+      end
+    end
+  end
+
+  describe 'templates without time brackets' do
+    let(:source_content) do
+      <<~TXT
+        #{current_day}
+
+            SUN 11/JUL/2021
+        -----
+        -----
+        - aft-dos
+          + existing child
+        -----
+        - late-dos
+        -----
+
+      TXT
+    end
+
+    it 'merges children into parents in different brackets' do
+      template = "- aft-dos\n  + day-pack\n- late-dos\n  + night-pack"
+      expected = source_content
+        .sub('  + existing child', "  + existing child\n  + day-pack")
+        .sub('- late-dos', "- late-dos\n  + night-pack")
+
+      expect(described_class.new(StringIO.new(template)).execute(source_content)).to eq(expected)
+    end
+
+    it 'raises when an unmatched entry has no bracket for placement' do
+      template = "- aft-dos\n  + day-pack\n- missing\n  + night-pack\n"
+
+      expect { described_class.new(StringIO.new(template)).execute(source_content) }
+        .to raise_error('No matching parent or template bracket for "- missing"')
+    end
+
+    it 'finds an existing parent on a day that has no separators' do
+      source_content = current_day + "\n    SUN 11/JUL/2021\n- aft-dos\n\n"
+      template = "- aft-dos\n  + day-pack\n"
+      expected = source_content.chomp + "  + day-pack\n" + "-----\n" * 4 + "\n"
+
+      expect(described_class.new(StringIO.new(template)).execute(source_content)).to eq(expected)
+    end
   end
 
   it "appends template entries to their time brackets and preserves carets as text" do
