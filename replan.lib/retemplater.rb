@@ -42,9 +42,7 @@ class Retemplater
 
     new_date_section = date_time_brackets
       .zip(template_time_brackets)
-      .map.with_index do |(date_bracket, template_bracket), bracket_i|
-        merge_time_bracket(date_bracket, template_bracket, top_bracket: bracket_i.zero?)
-      end
+      .map { |date_bracket, template_bracket| merge_time_bracket(date_bracket, template_bracket) }
       .join(TIME_BRACKETS_SEPARATOR)
       .concat(TIME_BRACKETS_SEPARATOR)
       .concat("\n")
@@ -54,19 +52,15 @@ class Retemplater
 
   private
 
-  def merge_time_bracket(next_date_bracket, template_bracket, top_bracket:)
+  def merge_time_bracket(next_date_bracket, template_bracket)
     next_date_lines = next_date_bracket.lines
     remaining_template_lines = merge_matching_top_level_entries!(next_date_lines, template_bracket.lines)
-    top_template_lines, bottom_template_lines = split_template_lines(remaining_template_lines)
 
-    insertion_i = top_bracket ? top_insertion_index(next_date_lines, start_i: 1) : 0
-    next_date_lines.insert(insertion_i, *top_template_lines)
-
-    next_date_lines.join + bottom_template_lines.join
+    next_date_lines.concat(remaining_template_lines).join
   end
 
-  # Top-level matches ignore timestamps and comments, preserving the existing parent. Matching takes
-  # precedence over top flags; a childless match only deduplicates the parent.
+  # Top-level matches ignore timestamps and comments, preserving the existing parent.
+  # A childless match only deduplicates the parent.
   #
   def merge_matching_top_level_entries!(next_date_lines, template_lines)
     remaining_lines = []
@@ -85,7 +79,7 @@ class Retemplater
         if matching_i
           insertion_i = matching_i + 1
           insertion_i += 1 while next_date_lines[insertion_i]&.match?(/\A /)
-          children = template_lines[(template_i + 1)...entry_end_i].map(&method(:remove_template_top_flags))
+          children = template_lines[(template_i + 1)...entry_end_i]
           next_date_lines.insert(insertion_i, *children)
         else
           remaining_lines.concat(template_lines[template_i...entry_end_i])
@@ -102,35 +96,9 @@ class Retemplater
   end
 
   def template_parent_key(line)
-    remove_template_top_flags(line)
+    line
       .sub(/\A(. )\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\. /, '\1')
       .sub(/ #.*$/, '')
       .rstrip
-  end
-
-  # A caret after an event symbol is template-only syntax and may appear at any indentation.
-  # Indented descendants belong to the caret-suffixed event and must move to the top along with it;
-  # redundant carets on those descendants are stripped as well.
-  #
-  def split_template_lines(template_lines)
-    top_lines = []
-    bottom_lines = []
-    top_entry_indentation = nil
-
-    template_lines.each do |line|
-      indentation = line[/\A */].size
-
-      if top_entry_indentation && indentation > top_entry_indentation
-        top_lines << remove_template_top_flags(line)
-      elsif line.match?(TEMPLATE_TOP_FLAG_PATTERN)
-        top_entry_indentation = indentation
-        top_lines << remove_template_top_flags(line)
-      else
-        top_entry_indentation = nil
-        bottom_lines << line
-      end
-    end
-
-    [top_lines, bottom_lines]
   end
 end

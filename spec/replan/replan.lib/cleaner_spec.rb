@@ -40,7 +40,7 @@ describe Cleaner do
     TEXT
   end
 
-  it 'removes template top flags without changing other carets' do
+  it 'preserves carets in schedule text' do
     content = <<~TEXT
       +^ top
         -^ nested
@@ -50,13 +50,6 @@ describe Cleaner do
 
     TEXT
 
-    expect(subject.execute(content)).to eq(<<~TEXT)
-      + top
-        - nested
-      S qualifier
-      +^no-space
-      - caret ^ in description
-
-    TEXT
+    expect(subject.execute(content)).to eq(content)
   end
 end

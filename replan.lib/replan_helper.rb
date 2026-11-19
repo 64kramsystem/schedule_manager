@@ -19,9 +19,6 @@ module ReplanHelper
   DATE_HEADER_REGEX = %r(^(    (\S{3}) (\d{2})/(\w{3})/?(\d{4})?))
   private_constant :DATE_HEADER_REGEX
 
-  TEMPLATE_TOP_FLAG_PATTERN = /^( *\S)\^(?=\s)/
-  private_constant :TEMPLATE_TOP_FLAG_PATTERN
-
   ##################################################################################################
   # FINDING
   ##################################################################################################
@@ -234,10 +231,8 @@ module ReplanHelper
   # S and % events qualify the whole day, so top events go after any leading day qualifiers and
   # their descendants.
   #
-  # start_i accounts for whether the caller's lines still include the date header.
-  #
-  def top_insertion_index(lines, start_i: 0)
-    insertion_i = start_i
+  def top_insertion_index(lines)
+    insertion_i = 0
 
     while lines[insertion_i] && day_qualifier_line?(lines[insertion_i])
       insertion_i += 1
@@ -249,10 +244,6 @@ module ReplanHelper
 
   def day_qualifier_line?(line)
     line.match?(/\A[S%] /)
-  end
-
-  def remove_template_top_flags(content)
-    content.gsub(TEMPLATE_TOP_FLAG_PATTERN, '\1')
   end
 
   ##################################################################################################

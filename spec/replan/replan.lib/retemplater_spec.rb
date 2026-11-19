@@ -153,8 +153,8 @@ describe Retemplater do
     TXT
 
     matching_template = <<~TXT
-      -^ shared entry
-        -^ template child
+      - shared entry
+        - template child
           - template grandchild
         - repeated child
       - following template entry
@@ -196,12 +196,12 @@ describe Retemplater do
   end
 
   [
-    ['- 08:37. work', '-^ work'],
-    ['- work # mega-brogramming', '-^ work'],
-    ['- 08:37. work # mega-brogramming', '-^ work'],
-    ['- 08:37-12:00. work # mega-brogramming', '-^ work'],
-    ['- work', '-^ 09:00-12:00. work # template comment'],
-    ['- 08:37. work # mega-brogramming', '-^ 09:00. work # template comment'],
+    ['- 08:37. work', '- work'],
+    ['- work # mega-brogramming', '- work'],
+    ['- 08:37. work # mega-brogramming', '- work'],
+    ['- 08:37-12:00. work # mega-brogramming', '- work'],
+    ['- work', '- 09:00-12:00. work # template comment'],
+    ['- 08:37. work # mega-brogramming', '- 09:00. work # template comment'],
   ].each do |existing_parent, template_parent|
     it "merges #{template_parent.inspect} into #{existing_parent.inspect} preserving the existing parent" do
       source_content = <<~TXT
@@ -254,7 +254,7 @@ describe Retemplater do
     TXT
 
     matching_template = <<~TXT
-      -^ work
+      - work
         - COFFEE+DAILY OVERVIEW
       -----
       -----
@@ -263,8 +263,8 @@ describe Retemplater do
     TXT
 
     expected_content = source_content.sub(
-      '+ 08:37. work # other symbol',
-      "- work\n  - COFFEE+DAILY OVERVIEW\n+ 08:37. work # other symbol",
+      '  - 08:37. work # nested entry',
+      "  - 08:37. work # nested entry\n- work\n  - COFFEE+DAILY OVERVIEW",
     )
 
     actual_content = described_class.new(StringIO.new(matching_template)).execute(source_content)
@@ -272,7 +272,7 @@ describe Retemplater do
     expect(actual_content).to eql(expected_content)
   end
 
-  it "Should add caret-suffixed template events to the top of their time bracket" do
+  it "appends template entries to their time brackets and preserves carets as text" do
     source_content = <<~TXT
       #{current_day}
 
@@ -292,7 +292,7 @@ describe Retemplater do
       - last morning
       -----
       -^ first noon
-        - nested detail
+        +^ nested detail
       - last noon
       -----
       -----
@@ -303,14 +303,14 @@ describe Retemplater do
       #{current_day}
 
           SUN 11/JUL/2021
-      - first morning
-      - second morning
       - existing morning
+      -^ first morning
+      -^ second morning
       - last morning
       -----
-      - first noon
-        - nested detail
       - existing noon
+      -^ first noon
+        +^ nested detail
       - last noon
       -----
       -----
@@ -321,94 +321,6 @@ describe Retemplater do
     actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
 
     expect(actual_content).to eql(expected_content)
-  end
-
-  it "Should add indented plus caret events and their descendants to the top" do
-    source_content = <<~TXT
-      #{current_day}
-
-          SUN 11/JUL/2021
-      -----
-      - existing noon
-      -----
-      -----
-      -----
-
-    TXT
-
-    caret_template = <<~TXT
-      -----
-        +^ lunch, floss.s, teeth
-          +^ prep water
-        + regular indented entry
-      -----
-      -----
-      -----
-    TXT
-
-    expected_content = <<~TXT
-      #{current_day}
-
-          SUN 11/JUL/2021
-      -----
-        + lunch, floss.s, teeth
-          + prep water
-      - existing noon
-        + regular indented entry
-      -----
-      -----
-      -----
-
-    TXT
-
-    actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
-
-    expect(actual_content).to eql(expected_content)
-  end
-
-  ['S', '%'].each do |day_event_qualifier|
-    it "Should leave the #{day_event_qualifier} day event qualifier at the top" do
-      source_content = <<~TXT
-        #{current_day}
-
-            SUN 11/JUL/2021
-        #{day_event_qualifier} day event
-          - nested detail
-        - existing morning
-        -----
-        -----
-        -----
-        -----
-
-      TXT
-
-      caret_template = <<~TXT
-        -^ first morning
-        -----
-        -----
-        -----
-        -----
-      TXT
-
-      expected_content = <<~TXT
-        #{current_day}
-
-            SUN 11/JUL/2021
-        #{day_event_qualifier} day event
-          - nested detail
-        - first morning
-        - existing morning
-        -----
-        -----
-        -----
-        -----
-
-      TXT
-
-      actual_content = described_class.new(StringIO.new(caret_template)).execute(source_content)
-
-      expect(actual_content).to eql(expected_content)
-    end
   end
 
   it "Should fill the missing separators" do

@@ -1,6 +1,6 @@
 require_relative 'replan_helper'
 
-# Remove temporary separators, blank lines within days, and template-only flags.
+# Remove temporary separators and blank lines within days.
 #
 class Cleaner
   include ReplanHelper
@@ -9,7 +9,7 @@ class Cleaner
 
   def execute(content)
     content = content.gsub(TEMPORARY_SEPARATOR_PATTERN, '')
-    remove_template_top_flags(remove_blank_lines_within_days(content))
+    remove_blank_lines_within_days(content)
   end
 
   private

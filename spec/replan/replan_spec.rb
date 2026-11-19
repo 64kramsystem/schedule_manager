@@ -47,7 +47,7 @@ describe Replan do
 
   let(:template) do
     <<~TXT
-      -^ template task
+      - template task
       -----
       -----
       -----
@@ -127,7 +127,7 @@ describe Replan do
 
       subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
 
-      expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- template task\n- existing selected day"))
+      expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- existing selected day\n- template task"))
     end
 
     it "preserves literal backslashes through template insertion" do
@@ -136,7 +136,7 @@ describe Replan do
 
       subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
 
-      expected = schedule.sub('- existing selected day') { |existing| "- #{task}\n#{existing}" }
+      expected = schedule.sub('- existing selected day') { |existing| "#{existing}\n- #{task}" }
       expect(File.read(schedule_filename)).to eq(expected)
     end
 
@@ -145,8 +145,8 @@ describe Replan do
 
       expected_day = <<~TXT
             WED 22/SEP/2021
-        - template task
         - existing selected day
+        - template task
         -----
         -----
         -----
@@ -163,7 +163,7 @@ describe Replan do
 
       subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 22), compare: false)
 
-      expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- template task\n- existing selected day"))
+      expect(File.read(schedule_filename)).to eq(schedule.sub('- existing selected day', "- existing selected day\n- template task"))
     end
 
     it "requires a template without changing the schedule or archive" do
@@ -265,7 +265,7 @@ describe Replan do
     it "still applies the template during a normal update" do
       subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false, debug: false)
 
-      expected_next_day = processed_next_day.sub('- existing next day', "- template task\n- existing next day")
+      expected_next_day = processed_next_day.sub('- daily task', "- template task\n- daily task")
       expect(File.read(schedule_filename)).to eq(expected_next_day + selected_day)
       expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
     end
