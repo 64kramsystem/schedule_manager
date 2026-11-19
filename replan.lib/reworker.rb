@@ -3,7 +3,7 @@ require 'time'
 
 require_relative 'replan_helper'
 
-# Compute the work for the current day, and add it to the next.
+# Compute the work for the current day and add its LPIM entry to a later day.
 #
 class Reworker
   include ReplanHelper
@@ -70,7 +70,9 @@ class Reworker
 
     return if @extract_only
 
-    add_lpim_to_content(content, work_times)
+    before, current, after = content.partition(current_date_section)
+    future_days, end_marker, notes = after.partition(/^#{Regexp.escape(END_OF_SCHEDULE_SEPARATOR)}[ \t]*$/)
+    before + current + add_lpim_to_content(future_days, work_times) + end_marker + notes
   end
 
   # Compute the hours of work for the first date (rounded to two decimals).

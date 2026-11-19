@@ -10,27 +10,25 @@ describe Reworker do
   let(:subject) { described_class.new(extract_only: true) }
 
   context "Accounting entry" do
-    it 'add the accounting entry via LPIM_REPLACE' do
+    it 'uses the next-day replacement marker when the current day and notes contain insert markers' do
       content = <<~TEXT
             MON 07/JUN/2021
         - work 1h
+        #LPIM_INSERT
 
-            WED 09/JUN/2021
+            TUE 08/JUN/2021
         #LPIM_REPLACE
 
+        #{ReplanHelper::END_OF_SCHEDULE_SEPARATOR}
+        #LPIM_INSERT
       TEXT
 
       result = Timecop.freeze(Date.new(2021, 6, 8)) do
         described_class.new.execute(content)
       end
 
-      expected_result = <<~TEXT
-            WED 09/JUN/2021
-        ; lpimw -t 2021-06-07 '1h' # -c half|off # Mon
-
-      TEXT
-
-      expect(result).to include(expected_result)
+      expected_result = content.sub('#LPIM_REPLACE', "; lpimw -t 2021-06-07 '1h' # -c half|off # Mon")
+      expect(result).to eq(expected_result)
     end
 
     it 'add the accounting entry via LPIM_INSERT (retaining the placeholder)' do
@@ -57,14 +55,17 @@ describe Reworker do
       expect(result).to include(expected_result)
     end
 
-    it 'add the accounting entry via LPIM_INSERT, when also LPIM_REPLACE is present' do
+    it 'prefers a later insertion marker to the next-day replacement marker' do
       content = <<~TEXT
             MON 07/JUN/2021
         - work 1h
+        #LPIM_REPLACE
+
+            TUE 08/JUN/2021
+        #LPIM_REPLACE
 
             WED 09/JUN/2021
         #LPIM_INSERT
-        #LPIM_REPLACE
 
       TEXT
 
@@ -73,14 +74,20 @@ describe Reworker do
       end
 
       expected_result = <<~TEXT
+            MON 07/JUN/2021
+        - work 1h
+        #LPIM_REPLACE
+
+            TUE 08/JUN/2021
+        # (lpim added to insert placeholder)
+
             WED 09/JUN/2021
         ; lpimw -t 2021-06-07 '1h' # -c half|off # Mon
         #LPIM_INSERT
-        # (lpim added to insert placeholder)
 
       TEXT
 
-      expect(result).to include(expected_result)
+      expect(result).to eq(expected_result)
     end
   end # context "Accounting entry"
 
