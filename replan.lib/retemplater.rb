@@ -33,15 +33,13 @@ class Retemplater
     date_time_brackets += [''] * missing_brackets
     date_brackets = date_time_brackets.map(&:lines)
 
-    template_content = @template
-      .gsub(/\$\{([a-z_]\w*)\}/i) { |placeholder| ENV.fetch(Regexp.last_match(1), placeholder) }
-    template_time_brackets = template_content
+    template_time_brackets = @template
       .split(/^#{TIME_BRACKETS_SEPARATOR}/, -1)
       .slice(0..-2)
 
     case template_time_brackets.size
     when 0
-      template_lines = "#{template_content.chomp}\n".lines
+      template_lines = "#{@template.chomp}\n".lines
       unmatched_lines = merge_matching_top_level_entries!(date_brackets, template_lines)
       unmatched = unmatched_lines.find { |line| !line.strip.empty? }
       raise "No matching parent or template bracket for #{unmatched.strip.inspect}" if unmatched
