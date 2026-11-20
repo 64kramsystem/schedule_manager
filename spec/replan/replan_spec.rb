@@ -59,6 +59,7 @@ describe Replan do
   let(:schedule_filename) { File.join(@directory, 'schedule') }
   let(:archive_filename) { File.join(@directory, 'archive') }
   let(:template_filename) { File.join(@directory, 'template') }
+  let(:daily_template_filename) { File.join(@directory, '__daily.txt') }
 
   around do |example|
     Dir.mktmpdir('replan-spec-', '/tmp') do |directory|
@@ -71,6 +72,7 @@ describe Replan do
     File.write(schedule_filename, schedule)
     File.write(archive_filename, "Existing archive\n")
     File.write(template_filename, template)
+    File.write(daily_template_filename, '')
     stub_const('Readder::DEFAULT_DAYS_TO_ADD', 2)
   end
 
@@ -122,6 +124,31 @@ describe Replan do
   end
 
   describe '#apply_template' do
+    it 'applies comma-separated templates in order and merges the daily template once at the end' do
+      File.write(File.join(@directory, 'festival.txt'), template)
+      File.write(File.join(@directory, 'packing.txt'), "- template task\n  - pack\n")
+      File.write(daily_template_filename, "- template task|missing\n  - daily child\n")
+      filenames = %w[festival.txt packing.txt].map { |name| File.join(@directory, name) }.join(',')
+
+      subject.apply_template(schedule_filename, template_filename: filenames,
+                             day: Date.new(2021, 9, 22), compare: false)
+
+      expected = schedule.sub('- existing selected day', "- existing selected day\n- template task\n  - pack\n  - daily child")
+      expect(File.read(schedule_filename)).to eq(expected)
+    end
+
+    it 'keeps the schedule intact when a later template in the list is missing' do
+      File.write(File.join(@directory, 'festival.txt'), template)
+      filenames = %w[festival.txt missing.txt].map { |name| File.join(@directory, name) }.join(',')
+
+      expect {
+        subject.apply_template(schedule_filename, template_filename: filenames,
+                               day: Date.new(2021, 9, 22), compare: false)
+      }.to raise_error(Errno::ENOENT, /missing\.txt/)
+
+      expect(File.read(schedule_filename)).to eq(schedule)
+    end
+
     it 'ignores temporary blank lines in the selected date' do
       File.write(schedule_filename, schedule.sub('- existing selected day', "\n- existing selected day"))
 
@@ -198,12 +225,6 @@ describe Replan do
   end
 
   describe '#update' do
-    let(:daily_template_filename) { File.join(@directory, '__daily.txt') }
-
-    before do
-      File.write(daily_template_filename, '')
-    end
-
     let(:processed_next_day) do
       <<~TXT
             TUE 21/SEP/2021
@@ -287,7 +308,17 @@ describe Replan do
       expect(File.read(archive_filename)).to eq(expected_archived_day + "Existing archive\n")
     end
 
-    it "applies __daily.txt and archives the current day when the selected template is disabled" do
+    it 'archives the current day without applying either template in no-template mode' do
+      File.delete(daily_template_filename)
+
+      subject.update(schedule_filename, archive_filename, template_filename:, compare: false, skips_only: false,
+                     debug: false, no_template: true)
+
+      expect(File.read(schedule_filename)).to eq(processed_next_day + selected_day)
+      expect(File.read(archive_filename)).to eq(archived_day + "Existing archive\n")
+    end
+
+    it 'applies __daily.txt in a normal update with no additional template' do
       File.write(daily_template_filename, "- existing next day\n  - daily child\n")
 
       subject.update(schedule_filename, archive_filename, template_filename: nil, templates_directory: @directory, compare: false, skips_only: false, debug: false)

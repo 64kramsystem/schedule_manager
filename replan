@@ -64,7 +64,9 @@ class Replan
     original_content = IO.read(schedule_filename)
     content = ensure_trailing_blank_line(original_content)
     content = Cleaner.new.execute(content)
-    content = Retemplater.new(template_filename).execute(content, date: day)
+    day_templates(template_filename).each do |filename|
+      content = Retemplater.new(filename).execute(content, date: day)
+    end
 
     conditional_save(content, original_content, schedule_filename, nil, compare:, archive_current_day: false)
   end
@@ -77,7 +79,7 @@ class Replan
     Relister.new(event_symbols).execute(content, export:)
   end
 
-  def update(schedule_filename, archive_filename, template_filename:, templates_directory: nil, compare:, skips_only:, debug:)
+  def update(schedule_filename, archive_filename, template_filename:, templates_directory: nil, compare:, skips_only:, debug:, no_template: false)
     content = IO.read(schedule_filename)
 
     # The last section must be terminated by a blank line (find_date_section requires it); editors can
@@ -91,16 +93,18 @@ class Replan
     content = Readder.new.execute(content)
 
     if !skips_only
-      templates_directory ||= File.dirname(template_filename) if template_filename
-      raise "A templates directory is required to apply __daily.txt" unless templates_directory
-
-      daily_template = File.join(templates_directory, '__daily.txt')
-      templates = [template_filename, daily_template].compact.uniq { |filename| File.expand_path(filename) }
-      templates.each { |filename| content = Retemplater.new(filename).execute(content) }
+      if !no_template
+        day_templates(template_filename, templates_directory).each do |filename|
+          content = Retemplater.new(filename).execute(content)
+        end
+      end
 
       content = Reworker.new.execute(content)
 
       if Resnapper.snap_reference?(content)
+        templates_directory ||= File.dirname(template_filenames(template_filename).first) if template_filename
+        raise "A templates directory is required to expand template references" unless templates_directory
+
         resnapper = Resnapper.new(templates_directory)
         content = resnapper.execute(content)
       end
@@ -121,6 +125,25 @@ class Replan
 
     conditional_save(content, original_content, schedule_filename, archive_filename, compare:, archive_current_day: !skips_only)
   end
+
+  private
+
+  # The template may be a comma-separated list of filenames.
+  #
+  def template_filenames(template_filename)
+    template_filename.to_s.split(',')
+  end
+
+  # The selected templates, followed by __daily.txt.
+  #
+  def day_templates(template_filename, templates_directory = nil)
+    filenames = template_filenames(template_filename)
+
+    templates_directory ||= File.dirname(filenames.first) if filenames.any?
+    raise "A templates directory is required to apply __daily.txt" unless templates_directory
+
+    (filenames + [File.join(templates_directory, '__daily.txt')]).uniq { |filename| File.expand_path(filename) }
+  end
 end
 
 if __FILE__ == $PROGRAM_NAME
@@ -129,8 +152,8 @@ if __FILE__ == $PROGRAM_NAME
   options = SimpleScripting::Argv.decode(
     [ "-D", "--debug",         "Debug mode" ],
     [ "-c", "--compare",       "Compare before replacing the file, if there is any change, and ask confirmation" ],
-    [ "-d", "--day DAY",       "Apply the template to DAY (YYYY-MM-DD) without processing the current day" ],
-    [ "-t", "--no-template",   "Skip the selected next-day template and still apply __daily.txt" ],
+    [ "-d", "--day DAY",       "Apply templates and __daily.txt to DAY (YYYY-MM-DD)" ],
+    [ "-t", "--no-template",   "Process the current day without applying next-day templates" ],
     [ "-l", "--list",          "List mode (limited to #{Relister::DEFAULT_DAYS_LISTED} days)"],
     [ "-x", "--export START",  "Export mode: list with JSON output and no limits; start: YYYY-MM-DD"],
     [ "-s", "--skips-only",    "Only move skips/once-offs"],
@@ -183,13 +206,12 @@ if __FILE__ == $PROGRAM_NAME
       else
         archive_filename = configuration.archive_filename.full_path
         configured_template = configuration.template_filename&.full_path
-        template_filename = (TEMPLATE || configured_template) unless options.key?(:no_template)
-        directory_template = configured_template || TEMPLATE
-        templates_directory = File.dirname(directory_template) if directory_template
+        template_filename = TEMPLATE || configured_template
+        templates_directory = File.dirname(configured_template) if configured_template
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
 
-        Replan.new.update(schedule_filename, archive_filename, template_filename:, templates_directory:, compare:, skips_only:, debug:)
+        Replan.new.update(schedule_filename, archive_filename, template_filename:, templates_directory:, compare:, skips_only:, debug:, no_template: !!options[:no_template])
       end
     end
   rescue => error
