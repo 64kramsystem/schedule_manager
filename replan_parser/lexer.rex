@@ -17,7 +17,6 @@ macro
   ON          on
   CARRY       c
   CARRY_PARENT p
-  TOP         \^
   TIME_BLOCK  [MNAE]
   TIME        \d{1,2}:\d\d
   INTERVAL    \d+(\.\d+)?[dwmy]?
@@ -39,7 +38,6 @@ rule
   {ONCE}        { [:ONCE, text] }
   {CARRY}       { [:CARRY, text] }
   {CARRY_PARENT} { [:CARRY_PARENT, text] }
-  {TOP}         { [:TOP, text] }
   {TIME_BLOCK}  { [:TIME_BLOCK, text] }
   {TIME}        { [:TIME, text] }
   {INTERVAL}    { [:INTERVAL, text] }

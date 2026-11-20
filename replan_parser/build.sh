@@ -12,10 +12,10 @@ racc parser.y -o "$(dirname "$0")"/../replan.lib/replan_parser.rb
 ruby -r "$(dirname "$0")"/../replan.lib/replan_parser.rb <<'RUBY'
   examples = [
     "replan 2.5w",
-    "replan fsuc^ 2w",
+    "replan fsuc 2w",
     "replan pA 2w",
     "replan U 2w",
-    "replan f18:33suc^ 2w",
+    "replan f18:33suc 2w",
     "replan s sun",
     "replan sun",
     "replan mon+",
@@ -35,7 +35,7 @@ ruby -r "$(dirname "$0")"/../replan.lib/replan_parser.rb <<'RUBY'
     "replan o in 3d",
     "replan op in 2w",
     "replan o wed+",
-    "replan o^A wed+",
+    "replan oA wed+",
   ]
 
   examples.each do |example|

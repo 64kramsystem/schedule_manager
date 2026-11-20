@@ -5,7 +5,7 @@ require_relative '../../../replan.lib/replan_codec.rb'
 describe ReplanCodec do
   context "token extraction" do
     it 'for string with all the functionalities (except once)' do
-      tokens = subject.extract_replan_tokens('(replan f13:33suUcp^ 2w in 3m)')
+      tokens = subject.extract_replan_tokens('(replan f13:33suUcp 2w in 3m)')
 
       expect(tokens).to eql(OpenStruct.new(
         fixed: 'f',
@@ -16,7 +16,6 @@ describe ReplanCodec do
         once: nil,
         carry: 'c',
         carry_parent: 'p',
-        top: '^',
         time_block: nil,
         interval: '2w',
         next_prefix: 'in',
@@ -25,7 +24,7 @@ describe ReplanCodec do
     end
 
     it 'for string with once flag' do
-      tokens = subject.extract_replan_tokens('(replan o^ in 3m)')
+      tokens = subject.extract_replan_tokens('(replan o in 3m)')
 
       expect(tokens).to eql(OpenStruct.new(
         fixed: nil,
@@ -36,7 +35,6 @@ describe ReplanCodec do
         once: 'o',
         carry: nil,
         carry_parent: nil,
-        top: '^',
         time_block: nil,
         interval: nil,
         next_prefix: 'in',
@@ -56,7 +54,6 @@ describe ReplanCodec do
         once: nil,
         carry: nil,
         carry_parent: nil,
-        top: nil,
         time_block: nil,
         interval: 'wed',
         next_prefix: nil,
@@ -76,7 +73,6 @@ describe ReplanCodec do
         once: nil,
         carry: nil,
         carry_parent: nil,
-        top: nil,
         time_block: nil,
         interval: '1',
         next_prefix: nil,
@@ -168,13 +164,8 @@ describe ReplanCodec do
       expect(subject.rewrite_replan('myevent (replan A 5)')).to eql('myevent (replan A 5)')
     end
 
-    it 'retains carry and top flags when rewriting a recurring replan' do
-      expect(subject.rewrite_replan('myevent (replan sc^ 5)')).to eql('myevent (replan c^ 5)')
-    end
-
-    it 'retains top and time-block flags' do
-      expect(subject.rewrite_replan('myevent (replan A^ 5)')).to eql('myevent (replan ^A 5)')
-      expect(subject.rewrite_replan('myevent (replan ^A 5)')).to eql('myevent (replan ^A 5)')
+    it 'retains the carry flag when rewriting a recurring replan' do
+      expect(subject.rewrite_replan('myevent (replan sc 5)')).to eql('myevent (replan c 5)')
     end
 
     it 'should update a replan description' do

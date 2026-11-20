@@ -490,49 +490,6 @@ describe Replanner do
       assert_replan(test_content, expected_updated_content, exact: true)
     end
 
-    it "keeps root and bracket top ordering when moving a level-2 top event" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      * movies
-        - nested top (replan ^A 2)
-      - first top (replan ^A 2)
-      - second top (replan ^A 2)
-
-          WED 22/SEP/2021
-      -----
-      -----
-      * movies
-        - existing child
-      - existing event
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          MON 20/SEP/2021
-      * movies
-        - nested top
-      - first top
-      - second top
-
-          WED 22/SEP/2021
-      -----
-      -----
-      - first top (replan ^A 2)
-      - second top (replan ^A 2)
-      * movies
-        - nested top (replan ^A 2)
-        - existing child
-      - existing event
-      -----
-      -----
-
-      TXT
-
-      assert_replan(test_content, expected_updated_content, exact: true)
-    end
-
     it "uses ordinary block placement when the root exists only in another destination block" do
       test_content = <<~TXT
           MON 20/SEP/2021
@@ -713,91 +670,45 @@ describe Replanner do
         assert_replan(test_content, expected_updated_content, exact: true)
       end
 
-      ['', '^'].each do |top|
-        it "keeps newly copied parents and their children together with #{top.empty? ? 'ordinary' : 'top'} placement" do
-          test_content = <<~TXT
-              MON 20/SEP/2021
-          - first (replan #{top}A 2)
-          * movies
-            - download (replan p#{top}A 2)
-            - watch (replan p#{top}A 2)
-          - last (replan #{top}A 2)
-
-              WED 22/SEP/2021
-          * movies
-            - morning
-          -----
-          -----
-          - existing
-          -----
-          -----
-
-          TXT
-
-          expected_updated_content = <<~TXT
-              MON 20/SEP/2021
-          - first
-          * movies
-            - download
-            - watch
-          - last
-
-              WED 22/SEP/2021
-          * movies
-            - morning
-          -----
-          -----
-          #{top.empty? ? "- existing\n" : ''}- first (replan #{top}A 2)
-          * movies
-            - download (replan p#{top}A 2)
-            - watch (replan p#{top}A 2)
-          - last (replan #{top}A 2)
-          #{top.empty? ? '' : "- existing\n"}-----
-          -----
-
-          TXT
-
-          assert_replan(test_content, expected_updated_content, exact: true)
-        end
-      end
-
-      it 'keeps top ordering across source dates when a copied parent gains more children' do
+      it "keeps newly copied parents and their children together" do
         test_content = <<~TXT
             MON 20/SEP/2021
+        - first (replan A 2)
         * movies
-          - monday (replan p^ 3)
-        - monday standalone (replan ^ 3)
+          - download (replan pA 2)
+          - watch (replan pA 2)
+        - last (replan A 2)
 
-            TUE 21/SEP/2021
-        - tuesday first (replan s^ 2)
+            WED 22/SEP/2021
         * movies
-          - tuesday (replan sp^ 2)
-        - tuesday standalone (replan s^ 2)
-
-            THU 23/SEP/2021
+          - morning
+        -----
+        -----
         - existing
+        -----
+        -----
 
         TXT
 
         expected_updated_content = <<~TXT
             MON 20/SEP/2021
+        - first
         * movies
-          - monday
-        - monday standalone
+          - download
+          - watch
+        - last
 
-            TUE 21/SEP/2021
+            WED 22/SEP/2021
         * movies
-
-            THU 23/SEP/2021
-        * movies
-          - monday (replan p^ 3)
-          - tuesday (replan p^ 2)
-        - monday standalone (replan ^ 3)
-        - tuesday first (replan ^ 2)
-        - tuesday standalone (replan ^ 2)
+          - morning
+        -----
+        -----
         - existing
-        -----
-        -----
+        - first (replan A 2)
+        * movies
+          - download (replan pA 2)
+          - watch (replan pA 2)
+        - last (replan A 2)
         -----
         -----
 
@@ -836,52 +747,6 @@ describe Replanner do
           - monday (replan p 3)
           - tuesday (replan p 2)
         - tuesday first (replan 2)
-        -----
-        -----
-        -----
-        -----
-
-        TXT
-
-        assert_replan(test_content, expected_updated_content, exact: true)
-      end
-
-      it 'keeps copied day qualifiers and their child groups ahead of ordinary top entries' do
-        test_content = <<~TXT
-            MON 20/SEP/2021
-        S first qualifier
-          - first (replan p^ 2)
-        % second qualifier
-          - second (replan p^ 2)
-          - third (replan p^ 2)
-        - standalone (replan ^ 2)
-
-            WED 22/SEP/2021
-        S existing qualifier
-          - existing child
-        - existing
-
-        TXT
-
-        expected_updated_content = <<~TXT
-            MON 20/SEP/2021
-        S first qualifier
-          - first
-        % second qualifier
-          - second
-          - third
-        - standalone
-
-            WED 22/SEP/2021
-        S existing qualifier
-          - existing child
-        S first qualifier
-          - first (replan p^ 2)
-        % second qualifier
-          - second (replan p^ 2)
-          - third (replan p^ 2)
-        - standalone (replan ^ 2)
-        - existing
         -----
         -----
         -----
@@ -1421,12 +1286,25 @@ describe Replanner do
     end
   end
 
-  context "Top flag" do
-    it "places caret replans before existing entries and retains the flag" do
-      test_content = <<~TXT
+  context "Removed caret flag" do
+    it "rejects a replan with the former top-placement flag" do
+      content = <<~TXT
           MON 20/SEP/2021
       - first (replan ^ 7)
-      - second (replan ^ 7)
+
+      TXT
+
+      expect {
+        expect { subject.execute(content) }.to raise_error(ReplanParser::ScanError, /can not match: '\^ 7'/)
+      }.to output(/Error on line.*replan \^ 7/).to_stderr
+    end
+  end
+
+  context "Fixed skipped entries" do
+    it "appends fixed skipped entries with their time" do
+      test_content = <<~TXT
+          MON 20/SEP/2021
+      - fixed skip (replan f10:00s 7)
 
           MON 27/SEP/2021
       - existing
@@ -1439,226 +1317,8 @@ describe Replanner do
 
       expected_updated_content = <<~TXT
           MON 27/SEP/2021
-      - first (replan ^ 7)
-      - second (replan ^ 7)
       - existing
-      -----
-      -----
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    ['S', '%'].each do |day_event_qualifier|
-      it "places caret replans after #{day_event_qualifier} day qualifiers" do
-        test_content = <<~TXT
-            MON 20/SEP/2021
-        - top (replan ^ 7)
-
-            MON 27/SEP/2021
-        #{day_event_qualifier} day event
-          - nested detail
-        - existing
-        -----
-        -----
-        -----
-        -----
-
-        TXT
-
-        expected_updated_content = <<~TXT
-            MON 27/SEP/2021
-        #{day_event_qualifier} day event
-          - nested detail
-        - top (replan ^ 7)
-        - existing
-        -----
-        -----
-        -----
-        -----
-        TXT
-
-        assert_replan(test_content, expected_updated_content)
-      end
-    end
-
-    it "preserves the order of multiple caret day qualifiers from one source date" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      S first qualifier (replan o^ thu)
-      % second qualifier (replan o^ thu)
-
-          THU 23/SEP/2021
-      - existing
-      -----
-      -----
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          THU 23/SEP/2021
-      S first qualifier
-      % second qualifier
-      - existing
-      -----
-      -----
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    it "preserves multiline caret day qualifier order from one source date" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      S first qualifier (replan c^ 3)
-        - first child
-      % second qualifier (replan c^ 3)
-        - second child
-
-          THU 23/SEP/2021
-      - existing
-      -----
-      -----
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          THU 23/SEP/2021
-      S first qualifier (replan c^ 3)
-        - first child
-      % second qualifier (replan c^ 3)
-        - second child
-      - existing
-      -----
-      -----
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    it "retains caret when replanning fixed skipped entries" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      - fixed skip (replan f10:00s^ 7)
-
-          MON 27/SEP/2021
-      - existing
-      -----
-      -----
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          MON 27/SEP/2021
-      - 10:00. fixed skip (replan f10:00^ 7)
-      - existing
-      -----
-      -----
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    it "combines with a retained time-block flag" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      - recurring (replan A^ 7)
-
-          MON 27/SEP/2021
-      -----
-      -----
-      - existing afternoon
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          MON 27/SEP/2021
-      -----
-      -----
-      - recurring (replan ^A 7)
-      - existing afternoon
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    it "preserves source-date order for caret replans targeting one block" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      - from monday (replan o^ thu)
-
-          TUE 21/SEP/2021
-      - from tuesday (replan o^ thu)
-
-          THU 23/SEP/2021
-      - existing
-      -----
-      -----
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          THU 23/SEP/2021
-      - from monday
-      - from tuesday
-      - existing
-      -----
-      -----
-      -----
-      -----
-      TXT
-
-      assert_replan(test_content, expected_updated_content)
-    end
-
-    it "orders multiline caret entries and replanned day qualifiers across source dates" do
-      test_content = <<~TXT
-          MON 20/SEP/2021
-      - from monday (replan c^ thu)
-        - monday child
-
-          TUE 21/SEP/2021
-      S tuesday qualifier (replan o^ thu)
-
-          WED 22/SEP/2021
-      - from wednesday (replan o^ thu)
-
-          THU 23/SEP/2021
-      - existing
-      -----
-      -----
-      -----
-      -----
-
-      TXT
-
-      expected_updated_content = <<~TXT
-          THU 23/SEP/2021
-      S tuesday qualifier
-      - from monday (replan c^ thu)
-        - monday child
-      - from wednesday
-      - existing
+      - 10:00. fixed skip (replan f10:00 7)
       -----
       -----
       -----

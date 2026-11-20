@@ -64,8 +64,7 @@ class Replanner
       )
       moved_replan_child_line_is = replan_child_line_is_by_parent.values.flatten
 
-      # Entries are processed in reverse. Repeated top insertions restore their original order; trailing
-      # line counts do the same for entries appended to a bracket.
+      # Trailing line counts restore source order when appending entries processed in reverse.
       #
       replan_lines.reverse.each do |replan_line, bracket_i, child_lines, replan_line_i, child_line_is, descendants, source_ancestors|
         next if moved_replan_child_line_is.include?(replan_line_i)
@@ -299,40 +298,22 @@ class Replanner
   # outside the complete parent group. The source date separates earlier and current insertions.
   def grow_placement(date, bracket_i, path, count)
     while (placement = @destination_placements[[date, bracket_i, path]])
-      outer_path, date_i, top = placement
-      @destination_counts[[date, bracket_i, outer_path, date_i, top]] += count
+      outer_path, date_i = placement
+      @destination_counts[[date, bracket_i, outer_path, date_i]] += count
       path = outer_path
     end
   end
 
-  def placement_kind(path, text, bracket_i, data)
-    data.top && path.empty? && bracket_i.zero? && day_qualifier_line?(text) ? :qualifier : !!data.top
-  end
-
-  def insert_in_scope(content, date, bracket_i, path, text, top:)
+  def insert_in_scope(content, date, bracket_i, path, text)
     line_count = text.lines.count
     content = edit_block(content, date, bracket_i) do |lines|
       parent_i = resolve_parent(lines, path)
-      prefix_count = @destination_counts.sum do |(d, b, p, source_i, at_top), count|
-        d == date && b == bracket_i && p == path && source_i < @source_date_i && at_top == true ? count : 0
-      end
-      trailing_count = @destination_counts[[date, bracket_i, path, @source_date_i, false]]
-      insertion_i = if top
-        base = parent_i ? parent_i + 1 : top_insertion_index(lines)
-        # Qualifiers themselves stay before ordinary top entries.
-        if !parent_i && bracket_i.zero? && day_qualifier_line?(text)
-          base -= @destination_counts[[date, bracket_i, path, @source_date_i, :qualifier]]
-        end
-        qualifier = !parent_i && bracket_i.zero? && day_qualifier_line?(text)
-        base + (qualifier ? 0 : prefix_count)
-      else
-        scope_end(lines, parent_i) - trailing_count
-      end
+      trailing_count = @destination_counts[[date, bracket_i, path, @source_date_i]]
+      insertion_i = scope_end(lines, parent_i) - trailing_count
       indent = parent_i ? lines[parent_i][/\A */].length + 2 : 0
       lines.insert(insertion_i, *text.rstrip.lines.map { |line| "#{' ' * indent}#{line.chomp}\n" })
     end
-    kind = top && path.empty? && bracket_i.zero? && day_qualifier_line?(text) ? :qualifier : top
-    @destination_counts[[date, bracket_i, path, @source_date_i, kind]] += line_count
+    @destination_counts[[date, bracket_i, path, @source_date_i]] += line_count
     grow_placement(date, bracket_i, path, line_count)
     content
   end
@@ -356,11 +337,10 @@ class Replanner
       parent_i = resolve_parent(lines, path)
       existing_i = find_child(lines, parent_i, identity)
       unless existing_i
-        text = parent_line
-        content = insert_in_scope(content, date, bracket_i, path, text, top: !!data.top)
+        content = insert_in_scope(content, date, bracket_i, path, parent_line)
         node_path = path + [identity]
         @copied_parents[[date, bracket_i, node_path]] = true
-        @destination_placements[[date, bracket_i, node_path]] = [path, @source_date_i, placement_kind(path, parent_line, bracket_i, data)]
+        @destination_placements[[date, bracket_i, node_path]] = [path, @source_date_i]
       end
       path += [identity]
     elsif !path.empty? && !resolve_parent(block_lines(content, date, bracket_i), path)
@@ -398,8 +378,8 @@ class Replanner
       end
       grow_placement(date, bracket_i, node_path, children.length)
     else
-      content = insert_in_scope(content, date, bracket_i, path, planned_line, top: !!data.top)
-      @destination_placements[key] = [path, @source_date_i, placement_kind(path, planned_line, bracket_i, data)]
+      content = insert_in_scope(content, date, bracket_i, path, planned_line)
+      @destination_placements[key] = [path, @source_date_i]
     end
     @merged_child_counts[[key, @source_date_i]] += planned_line.lines.length - 1
     content

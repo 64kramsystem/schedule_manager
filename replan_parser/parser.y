@@ -23,7 +23,6 @@ rule
   once_option
     : CARRY                        { checked_assign(:v_carry, val.fetch(0)) }
     | CARRY_PARENT                 { checked_assign(:v_carry_parent, val.fetch(0)) }
-    | TOP                          { checked_assign(:v_top, val.fetch(0)) }
     | TIME_BLOCK                   { assign_time_block(val.fetch(0)) }
     ;
 
@@ -87,7 +86,7 @@ end
   require_relative 'replan_lexer'
 
 ---- inner
-  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_carry, :v_top,
+  attr_accessor :v_f, :v_f_time, :v_s, :v_ul, :v_uu, :v_o, :v_carry,
     :v_time_block, :v_interval, :v_next_prefix, :v_next, :v_carry_parent
 
   def parse(input)
@@ -102,7 +101,6 @@ end
       once:        self.v_o,
       carry:       self.v_carry,
       carry_parent: self.v_carry_parent,
-      top:         self.v_top,
       time_block:  self.v_time_block,
       interval:    self.v_interval,
       next_prefix: self.v_next_prefix,
