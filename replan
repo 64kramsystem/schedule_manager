@@ -215,7 +215,7 @@ if __FILE__ == $PROGRAM_NAME
         skips_only = !!options[:skips_only]
         compare = !!options[:compare]
 
-        Replan.new.update(schedule_filename, archive_filename, template_filename:, templates_directory:, compare:, skips_only:, debug:, no_template: !!options[:no_template])
+        Replan.new.update(schedule_filename, archive_filename, template_filename:, templates_directory:, compare:, skips_only:, debug:, no_template: options.key?(:no_template))
       end
     end
   rescue => error
