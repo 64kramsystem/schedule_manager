@@ -64,6 +64,10 @@ class Replan
     original_content = IO.read(schedule_filename)
     content = ensure_trailing_blank_line(original_content)
     content = Cleaner.new.execute(content)
+    if !find_date_section(content, day, allow_not_found: true)
+      preceding_date = find_preceding_or_existing_date(content, day)
+      content = add_new_date_section(content, preceding_date, day)
+    end
     day_templates(template_filename).each do |filename|
       content = Retemplater.new(filename).execute(content, date: day)
     end

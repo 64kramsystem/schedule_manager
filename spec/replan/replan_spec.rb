@@ -202,12 +202,23 @@ describe Replan do
       expect(File.read(archive_filename)).to eq("Existing archive\n")
     end
 
-    it "rejects a missing date section without changing the schedule or archive" do
-      expect {
-        subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 23), compare: false)
-      }.to raise_error('Header not found after date: 2021-09-23')
+    it "inserts and fills a missing date between existing sections" do
+      File.write(schedule_filename, current_day + selected_day)
 
-      expect(File.read(schedule_filename)).to eq(schedule)
+      subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 21), compare: false)
+
+      expected_day = "    TUE 21/SEP/2021\n- template task\n-----\n-----\n-----\n-----\n\n"
+      expect(File.read(schedule_filename)).to eq(current_day + expected_day + selected_day)
+      expect(File.read(archive_filename)).to eq("Existing archive\n")
+    end
+
+    it "inserts and fills a missing date after the last section" do
+      File.write(schedule_filename, schedule.chomp)
+
+      subject.apply_template(schedule_filename, template_filename:, day: Date.new(2021, 9, 23), compare: false)
+
+      expected_day = "    THU 23/SEP/2021\n- template task\n-----\n-----\n-----\n-----\n\n"
+      expect(File.read(schedule_filename)).to eq(schedule + expected_day)
       expect(File.read(archive_filename)).to eq("Existing archive\n")
     end
 
